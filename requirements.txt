@@ -1,2 +1,5 @@
-Pandas
-openpyxly
+streamlit
+pandas
+matplotlib
+numpy
+streamlit-gsheets
