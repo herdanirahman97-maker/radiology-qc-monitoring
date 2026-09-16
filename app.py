@@ -5,7 +5,6 @@ import base64
 import os
 import json
 import math
-from datetime import datetime
 
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
 
@@ -46,7 +45,7 @@ all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
 
-# --- HTML BUILDERS (SUHU & QC) ---
+# --- HTML BUILDER SUHU & KELEMBAPAN ---
 def build_room_html(sheet_name, file_name, df, logo_data_uri):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
     kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
@@ -196,6 +195,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     """
     return html
 
+# --- HTML BUILDER QC ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -367,16 +367,17 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- MAIN APP LAYOUT (HIERARKI KETAT) ---
+# --- MAIN APP LAYOUT (3 TOMBOL UTAMA YANG BERSIH & TERPISAH) ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
-    st.sidebar.header("Navigasi Menu Utama")
+    st.sidebar.header("🧭 Navigasi Utama")
     
-    # 1. Pilih Mode Utama (Sangat Terpisah)
-    app_mode = st.sidebar.radio("Pilih Mode Akses:", [
-        "🖥️ Mode Review & Cetak (Dashboard)", 
-        "📱 Mode Input Petugas (Scan Barcode / Form Mandiri)"
+    # 3 Tombol Utama yang Berdiri Sendiri
+    main_menu = st.sidebar.radio("Pilih Menu:", [
+        "📂 Review Backdate", 
+        "📝 Input Data", 
+        "⚙️ Revisi / Hapus"
     ])
     
     logo_b64 = get_image_base64(LOGO_PATH)
@@ -454,21 +455,22 @@ else:
     """
     master_html_end = "</body></html>"
     
-    # --- JIKA MEMILIH MODE REVIEW & CETAK ---
-    if app_mode == "🖥️ Mode Review & Cetak (Dashboard)":
+    # ==========================================
+    # 1. MENU: REVIEW BACKDATE
+    # ==========================================
+    if main_menu == "📂 Review Backdate":
         st.sidebar.markdown("---")
-        st.sidebar.subheader("📁 Menu Tinjauan Arsip")
+        st.sidebar.subheader("📂 Pengaturan Review")
         
-        # Pilihan database/arsip hanya muncul di sini
-        selected_file = st.sidebar.selectbox("Pilih Bulan Database Arsip:", all_files)
+        selected_file = st.sidebar.selectbox("Pilih Bulan Arsip:", all_files)
         xls = pd.ExcelFile(selected_file)
         
-        review_type = st.sidebar.radio("Pilih Kategori Review:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
+        review_category = st.sidebar.radio("Pilih Kategori:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
         
-        if review_type == "🌡️ Suhu & Kelembapan":
+        if review_category == "🌡️ Suhu & Kelembapan":
             raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
             selected_sheet = st.sidebar.selectbox(
-                "Pilih Ruangan / Modality:", 
+                "Pilih Ruangan:", 
                 raw_data_sheets, 
                 format_func=lambda x: str(x).replace(" Oct", "").strip()
             )
@@ -478,54 +480,22 @@ else:
             
         else:
             qc_sheets = [s for s in xls.sheet_names if "QC" in s]
-            selected_qc = st.sidebar.selectbox("Pilih Lembar QC Modality:", qc_sheets)
+            selected_qc = st.sidebar.selectbox("Pilih Modality QC:", qc_sheets)
             df_qc = pd.read_excel(xls, sheet_name=selected_qc, header=None)
             qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
-        # Fitur Hapus/Koreksi data khusus di menu review supervisor
-        st.sidebar.markdown("---")
-        if st.sidebar.checkbox("⚙️ Kelola / Hapus Data Salah Input"):
-            st.subheader("⚙️ Pengelolaan Riwayat Database Lokal (Koreksi / Hapus)")
-            db_type_to_clean = st.selectbox("Pilih Database:", ["QC", "Suhu & Kelembapan"])
-            
-            if db_type_to_clean == "QC":
-                current_qc_db = load_local_db(DB_QC_FILE)
-                if selected_file in current_qc_db:
-                    st.write(f"Data tersimpan untuk file **{selected_file}**:")
-                    for modality, days in current_qc_db[selected_file].items():
-                        for d_key in list(days.keys()):
-                            if st.button(f"Hapus Rekap {modality} - Tanggal {d_key}"):
-                                del current_qc_db[selected_file][modality][d_key]
-                                save_local_db(DB_QC_FILE, current_qc_db)
-                                st.success(f"Data {modality} tanggal {d_key} berhasil dihapus!")
-                                st.rerun()
-                else:
-                    st.info("Belum ada data lokal QC tersimpan untuk bulan ini.")
-            else:
-                current_suhu_db = load_local_db(DB_SUHU_FILE)
-                if selected_file in current_suhu_db:
-                    st.write(f"Data suhu tersimpan untuk file **{selected_file}**:")
-                    for room, entries in current_suhu_db[selected_file].items():
-                        for idx, entry in enumerate(entries):
-                            if st.button(f"Hapus Suhu {room} - Tgl {entry['tanggal']} ({entry['dinas']})"):
-                                current_suhu_db[selected_file][room].pop(idx)
-                                save_local_db(DB_SUHU_FILE, current_suhu_db)
-                                st.success("Data suhu berhasil dihapus!")
-                                st.rerun()
-                else:
-                    st.info("Belum ada data lokal Suhu tersimpan untuk bulan ini.")
-
-    # --- JIKA MEMILIH MODE INPUT PETUGAS ---
-    elif app_mode == "📱 Mode Input Petugas (Scan Barcode / Form Mandiri)":
-        st.header("📱 Halaman Pengisian Mandiri Petugas (Barcode Scan Target)")
-        st.write("Formulir ini diakses langsung oleh petugas radiologi saat melakukan pengecekan harian.")
+    # ==========================================
+    # 2. MENU: INPUT DATA
+    # ==========================================
+    elif main_menu == "📝 Input Data":
+        st.header("📝 Form Pengisian Data Harian (Mandiri)")
+        st.write("Silakan isi formulir harian berikut. Data akan langsung tersimpan dan memperbarui preview secara real-time.")
         
-        # Default target ke file aktif/terbaru (misal file pertama atau bulan berjalan)
-        selected_file = all_files[0] if all_files else ""
+        selected_file = st.selectbox("Pilih Bulan Target Arsip:", all_files)
         xls = pd.ExcelFile(selected_file) if selected_file else None
         
-        form_category = st.radio("Pilih Jenis Form Pengisian:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
+        form_type = st.radio("Pilih Jenis Formulir:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
         
         with st.form("standalone_input_form"):
             st.subheader("1. Identitas & Waktu")
@@ -537,8 +507,8 @@ else:
             with col_c:
                 dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
 
-            if form_category == "🌡️ Monitoring Suhu & Kelembapan":
-                st.subheader("2. Input Suhu & Kelembapan")
+            if form_type == "🌡️ Monitoring Suhu & Kelembapan":
+                st.subheader("2. Parameter Suhu & Kelembapan")
                 raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
                 target_room_input = st.selectbox("Pilih Ruangan", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
                 
@@ -551,7 +521,7 @@ else:
                 action_plan = st.text_area("Keterangan / Tindakan (opsional)")
                 
             else:
-                st.subheader("2. Checklist Daily QC Sesuai Modalitas")
+                st.subheader("2. Checklist Parameter QC Sesuai Modalitas")
                 qc_sheets = [s for s in xls.sheet_names if "QC" in s] if xls else []
                 target_qc_input = st.selectbox("Pilih Modalitas QC", qc_sheets)
                 
@@ -609,7 +579,7 @@ else:
             submitted_data = st.form_submit_button("🚀 Submit Data Harian")
             
             if submitted_data:
-                if form_category == "🌡️ Monitoring Suhu & Kelembapan":
+                if form_type == "🌡️ Monitoring Suhu & Kelembapan":
                     local_suhu = load_local_db(DB_SUHU_FILE)
                     if selected_file not in local_suhu:
                         local_suhu[selected_file] = {}
@@ -645,3 +615,49 @@ else:
                     save_local_db(DB_QC_FILE, local_qc)
                     st.success("✅ Data Checklist QC berhasil disimpan secara real-time!")
                     st.balloons()
+
+    # ==========================================
+    # 3. MENU: REVISI / HAPUS
+    # ==========================================
+    elif main_menu == "⚙️ Revisi / Hapus":
+        st.header("⚙️ Menu Revisi & Penghapusan Data")
+        st.write("Gunakan menu ini untuk menghapus atau mengoreksi data yang salah input tanggal atau nilainya.")
+        
+        selected_file = st.selectbox("Pilih Bulan Database Arsip:", all_files)
+        db_type_to_clean = st.selectbox("Pilih Kategori Data:", ["QC", "Suhu & Kelembapan"])
+        
+        st.markdown("---")
+        if db_type_to_clean == "QC":
+            current_qc_db = load_local_db(DB_QC_FILE)
+            if selected_file in current_qc_db and current_qc_db[selected_file]:
+                st.write(f"Daftar input QC tersimpan untuk **{selected_file}**:")
+                for modality, days in current_qc_db[selected_file].items():
+                    for d_key in list(days.keys()):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"• **{modality}** — Tanggal {d_key}")
+                        with col2:
+                            if st.button("🗑️ Hapus", key=f"del_qc_{modality}_{d_key}"):
+                                del current_qc_db[selected_file][modality][d_key]
+                                save_local_db(DB_QC_FILE, current_qc_db)
+                                st.success(f"Data {modality} tanggal {d_key} berhasil dihapus!")
+                                st.rerun()
+            else:
+                st.info("Belum ada data input QC lokal untuk bulan ini.")
+        else:
+            current_suhu_db = load_local_db(DB_SUHU_FILE)
+            if selected_file in current_suhu_db and current_suhu_db[selected_file]:
+                st.write(f"Daftar input Suhu & Kelembapan tersimpan untuk **{selected_file}**:")
+                for room, entries in current_suhu_db[selected_file].items():
+                    for idx, entry in enumerate(entries):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"• **{room}** — Tgl {entry['tanggal']} (Dinas {entry['dinas']}, Petugas: {entry['petugas']})")
+                        with col2:
+                            if st.button("🗑️ Hapus", key=f"del_suhu_{room}_{idx}"):
+                                current_suhu_db[selected_file][room].pop(idx)
+                                save_local_db(DB_SUHU_FILE, current_suhu_db)
+                                st.success("Data suhu berhasil dihapus!")
+                                st.rerun()
+            else:
+                st.info("Belum ada data input Suhu lokal untuk bulan ini.")
