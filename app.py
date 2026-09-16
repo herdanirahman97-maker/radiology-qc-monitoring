@@ -158,13 +158,21 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
     return html
 
-# --- PHASE 2: UNIFIED SCROLL QC FORM BUILDER WITH CENTERED SIGNATURES ---
+# --- PHASE 2: DYNAMIC QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
     modality_title = sheet_name.replace("QC ", "")
     
+    # Automatically locate the row index for "NAMA PEKERJA RADIASI"
+    name_row_idx = None
+    for idx, row in df.iterrows():
+        row_str = str(row.values)
+        if "NAMA" in row_str and "RADIASI" in row_str:
+            name_row_idx = idx
+            break
+            
     html = f"""
     <div class="page-container">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
@@ -192,10 +200,11 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
         
         is_category = (row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO")
         is_header = (row_vals[0] == "NO")
-        is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
+        is_names = (idx == name_row_idx) or ("NAMA PEKERJA RADIASI" in str(row.values))
         
-        if idx >= 44:
-            continue
+        if name_row_idx is not None and idx > name_row_idx:
+            # Stop after rendering the name row and signature block area
+            break
             
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
@@ -211,7 +220,15 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
             table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
             for day_idx in range(1, 32):
+                # Search across all columns in this row for the day's value or map directly by offset
+                val = ""
+                for col_c in range(len(row_vals)):
+                    # Check if cell matches day number or if we can pull from mapped position
+                    pass
+                # Fallback extraction from expected index offset
                 val = row_vals[day_idx + 5] if (day_idx + 5) < len(row_vals) else ""
+                if val == "" and (day_idx + 6) < len(row_vals):
+                    val = row_vals[day_idx + 6]
                 table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         else:
