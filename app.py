@@ -14,6 +14,9 @@ def get_image_base64(image_path):
     return ""
 
 LOGO_PATH = "logo.png"
+SIG1_PATH = "sig1.png"
+SIG2_PATH = "sig2.png"
+SIG3_PATH = "sig3.png"
 
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
@@ -59,7 +62,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 15px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h1 style='margin: 0; font-weight: 700; font-size: 26px; letter-spacing: 0.5px;'>Form Digital Monitoring Suhu dan Kelembapan</h1>
+                <h1 style='margin: 0; font-weight: 700; font-size: 26px;'>Form Digital Monitoring Suhu dan Kelembapan</h1>
                 <h3 style='margin: 6px 0 0 0; font-weight: 600; font-size: 16px; color: #333;'>Departemen Radiologi Tahun 2026</h3>
             </div>
             <div style='flex: 0 0 150px;'></div>
@@ -73,7 +76,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1100px;'>
     """
 
-    # --- SUHU SECTION ---
     html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>SUHU</th>"
     html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target Temperatur (18 - 23)°C</th></tr>"
     
@@ -108,7 +110,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0;'>{dot}</td>"
         html += "</tr>"
         
-    # --- KELEMBAPAN SECTION ---
     html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>KELEMBAPAN</th>"
     html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target kelembapan ( 40 - 60 % )</th></tr>"
     
@@ -143,7 +144,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0;'>{dot}</td>"
         html += "</tr>"
 
-    # --- NAMA PETUGAS SECTION ---
     html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px;'>NAMA</td>"
     for day in range(1, 32):
         for shift in ['P', 'S', 'M']:
@@ -158,15 +158,13 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
     return html
 
-# --- PHASE 2: QC FORM TEMPLATE BUILDER ---
-def build_qc_html(sheet_name, file_name, df, logo_base64):
+# --- PHASE 2: QC FORM TEMPLATE BUILDER WITH SIGNATURES ---
+def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
-    # Extract modality title and clean up dataframe to match template layout exactly
     modality_title = sheet_name.replace("QC ", "")
     
-    # Start building clean HTML representation matching the exact QC template format
     html = f"""
     <div class="page-container">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
@@ -184,25 +182,25 @@ def build_qc_html(sheet_name, file_name, df, logo_base64):
         </div>
     """
     
-    # We render the template rows directly with styled formatting matching the reference image
     table_html = "<table class='qc-table'>"
     
-    # Iterate through the rows of the excel template sheet
     for idx, row in df.iterrows():
-        # Skip title rows that are already displayed above
         if idx < 8:
             continue
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
         
-        # Check if it's a category header row (e.g., "Cek Kelengkapan & Peralatan Penunjang")
         is_category = row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO"
         is_header = row_vals[0] == "NO"
         is_names = "NAMA PEKERJA RADIASI" in str(row.values)
         
+        # Skip the bottom excel signature rows because we will render a clean professional footer
+        if idx >= 44:
+            continue
+            
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
-            for val in row_vals[:37]: # 37 columns (NO, KEGIATAN, PARAMETER, 1-31)
+            for val in row_vals[:37]:
                 table_html += f"<td style='border: 1px solid black; padding: 4px;'>{val}</td>"
             table_html += "</tr>"
         elif is_category:
@@ -220,11 +218,54 @@ def build_qc_html(sheet_name, file_name, df, logo_base64):
             table_html += "</tr>"
             
     table_html += "</table>"
-    html += table_html + '<div class="trademark">Source & maintained by Herdani Rahman</div></div>'
+    html += table_html
+    
+    # --- PROFESSIONAL FOOTER WITH LEGEND & SIGNATURES ---
+    sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<br><br>"
+    sig2_img = f"<img src='data:image/png;base64,{sig2_b64}' width='110'>" if sig2_b64 else "<br><br>"
+    sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<br><br>"
+    
+    html += f"""
+    <div style="display: flex; justify-content: space-between; margin-top: 20px; align-items: flex-start;">
+        <!-- Keterangan Box -->
+        <div style="border: 1px solid black; width: 300px; font-size: 10px;">
+            <div style="background-color: #d9d9d9; padding: 5px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
+            <div style="padding: 6px;">
+                ✓ : Memenuhi / Lulus Uji / Lengkap<br>
+                X : Tidak Memenuhi / Tidak Lulus Uji / Tidak Lengkap
+            </div>
+        </div>
+        
+        <!-- Signatures Table -->
+        <table style="border-collapse: collapse; width: 550px; font-size: 10px; text-align: center;">
+            <tr>
+                <td style="border: 1px solid black; background-color: #d9d9d9; font-weight: bold; padding: 5px;" width="33%">Disiapkan Oleh</td>
+                <td style="border: 1px solid black; background-color: #d9d9d9; font-weight: bold; padding: 5px;" colspan="2">Mengetahui</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; height: 60px; vertical-align: middle;">{sig1_img}</td>
+                <td style="border: 1px solid black; height: 60px; vertical-align: middle;" width="33%">{sig2_img}</td>
+                <td style="border: 1px solid black; height: 60px; vertical-align: middle;" width="33%">{sig3_img}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; font-weight: bold; padding: 4px;">Rheinner Nicholaus, Amd. Rad</td>
+                <td style="border: 1px solid black; font-weight: bold; padding: 4px;">Joko Harjanto S.Tr.Rad</td>
+                <td style="border: 1px solid black; font-weight: bold; padding: 4px;">dr Christopher Silman Sp.Rad, Ph.D</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 4px;">PIC. Fasilitas</td>
+                <td style="border: 1px solid black; padding: 4px;">Koordinator Radiologi</td>
+                <td style="border: 1px solid black; padding: 4px;">Ho. Dept Radiologi</td>
+            </tr>
+        </table>
+    </div>
+    <div class="trademark">Source & maintained by Herdani Rahman</div>
+    </div>
+    """
     return html
 
 
-# --- MAIN APP LAYOUT & TABS ---
+# --- MAIN APP LAYOUT ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
@@ -235,6 +276,9 @@ else:
     xls = pd.ExcelFile(selected_file)
     
     logo_b64 = get_image_base64(LOGO_PATH)
+    sig1_b64 = get_image_base64(SIG1_PATH)
+    sig2_b64 = get_image_base64(SIG2_PATH)
+    sig3_b64 = get_image_base64(SIG3_PATH)
     
     master_html_start = """
     <!DOCTYPE html>
@@ -295,7 +339,7 @@ else:
                 text-align: left; 
                 font-size: 11px; 
                 color: #888888; 
-                margin-top: 10px; 
+                margin-top: 15px; 
                 font-weight: 400; 
                 font-style: italic;
                 letter-spacing: 0.3px;
@@ -340,15 +384,15 @@ else:
         
         if qc_view_mode == "Tampilkan 1 QC Sheet" and selected_qc:
             df_qc = pd.read_excel(xls, sheet_name=selected_qc, header=None)
-            qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64)
-            components.html(master_html_start + qc_html + master_html_end, height=900, scrolling=True)
+            qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
+            components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
             
         elif qc_view_mode == "Cetak Semua QC Sheets (1 Bulan)":
             st.info("💡 Memuat seluruh lembar QC modality untuk dicetak.")
             all_qc_html = ""
             for i, qsheet in enumerate(qc_sheets):
                 df_qc = pd.read_excel(xls, sheet_name=qsheet, header=None)
-                all_qc_html += build_qc_html(qsheet, selected_file, df_qc, logo_b64)
+                all_qc_html += build_qc_html(qsheet, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
                 if i < len(qc_sheets) - 1:
                     all_qc_html += "<div class='page-break'></div>"
-            components.html(master_html_start + all_qc_html + master_html_end, height=900, scrolling=True)
+            components.html(master_html_start + all_qc_html + master_html_end, height=950, scrolling=True)
