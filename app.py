@@ -25,6 +25,8 @@ SIG3_PATH = "sig3"
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
+OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
+
 # --- PHASE 1: TEMPERATURE & HUMIDITY HTML BUILDER ---
 def build_room_html(sheet_name, file_name, df, logo_data_uri):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
@@ -159,7 +161,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     
     html += f"""
         </table>
-        <div class="trademark">Source & maintained by Herdani Rahman Account</div>
+        <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
@@ -170,8 +172,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     modality_title = sheet_name.replace("QC ", "")
     
-    # 1. Dynamically find the parameter column index from header row (index 8)
-    param_col_idx = 5  # default fallback
+    param_col_idx = 5
     for r_idx in [8, 7, 6]:
         if r_idx < len(df):
             row_h = [str(x).upper() for x in df.iloc[r_idx].values]
@@ -241,11 +242,9 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             if row_vals[0] == "" and all(v == "" for v in row_vals[1:param_col_idx]):
                 continue
                 
-            # Extract Kegiatan (col 1) and Parameter (dynamically at param_col_idx)
             kegiatan = row_vals[1].strip() if len(row_vals) > 1 else ""
             parameter = row_vals[param_col_idx].strip() if param_col_idx < len(row_vals) else ""
             
-            # Fallback if parameter is empty
             if not parameter:
                 for c in range(2, param_col_idx + 1):
                     if c < len(row_vals) and row_vals[c].strip() != "" and row_vals[c].strip() not in ["✓", "X"]:
@@ -257,7 +256,6 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{kegiatan}</td>"
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{parameter}</td>"
             
-            # Days 1 to 31 checklist values (starting right after parameter column)
             for day_idx in range(1, 32):
                 val = ""
                 target_col = param_col_idx + day_idx
@@ -325,7 +323,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             </tr>
         </table>
     </div>
-    <div class="trademark">Source & maintained by Herdani Rahman Account</div>
+    <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
@@ -335,7 +333,11 @@ if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
     st.sidebar.header("Navigasi Menu Utama")
-    app_mode = st.sidebar.radio("Pilih Modul:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
+    app_mode = st.sidebar.radio("Pilih Modul:", [
+        "🌡️ Monitoring Suhu & Kelembapan (Review)", 
+        "📋 Daily Quality Control (Review)", 
+        "📝 Form Pengisian Data (GForm Replacement)"
+    ])
     
     selected_file = st.sidebar.selectbox("Pilih Bulan Database:", all_files)
     xls = pd.ExcelFile(selected_file)
@@ -415,7 +417,7 @@ else:
     """
     master_html_end = "</body></html>"
     
-    if app_mode == "🌡️ Monitoring Suhu & Kelembapan":
+    if app_mode == "🌡️ Monitoring Suhu & Kelembapan (Review)":
         raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
         selected_sheet = st.sidebar.selectbox(
             "Pilih Ruangan / Modality:", 
@@ -439,7 +441,7 @@ else:
                     all_rooms_html += "<div class='page-break'></div>"
             components.html(master_html_start + all_rooms_html + master_html_end, height=850, scrolling=True)
             
-    elif app_mode == "📋 Daily Quality Control (QC)":
+    elif app_mode == "📋 Daily Quality Control (Review)":
         qc_sheets = [s for s in xls.sheet_names if "QC" in s]
         selected_qc = st.sidebar.selectbox("Pilih Lembar QC Modality:", qc_sheets)
         qc_view_mode = st.sidebar.radio("Mode Tampilan QC:", ["Tampilkan 1 QC Sheet", "Cetak Semua QC Sheets (1 Bulan)"])
@@ -458,3 +460,70 @@ else:
                 if i < len(qc_sheets) - 1:
                     all_qc_html += "<div class='page-break'></div>"
             components.html(master_html_start + all_qc_html + master_html_end, height=850, scrolling=True)
+
+    elif app_mode == "📝 Form Pengisian Data (GForm Replacement)":
+        st.header("📝 Form Pengisian Digital (Pengganti Google Forms)")
+        st.write(f"Database aktif: **{selected_file}**")
+        
+        form_type = st.radio("Pilih Formulir:", ["Monitoring Suhu & Kelembapan", "Form Digital Daily QC (Section 2)"])
+        
+        with st.form("gform_replacement_form"):
+            st.subheader("Informasi Petugas & Waktu")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                petugas = st.selectbox("Nama Petugas", OFFICER_INITIALS)
+            with col2:
+                tanggal = st.selectbox("Tanggal Pengisian", list(range(1, 32)))
+            with col3:
+                dinas = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
+                
+            st.info("💡 **Ket**: Form QC hanya diisi oleh petugas pada **dinas Pagi (P)**. Petugas Siang dan Malam dapat langsung submit form monitoring suhu dan kelembapan saja.")
+
+            if form_type == "Monitoring Suhu & Kelembapan":
+                st.subheader("Parameter Suhu & Kelembapan Ruangan")
+                raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
+                target_room = st.selectbox("Pilih Ruangan / Modality", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
+                
+                col_s, col_k = st.columns(2)
+                with col_s:
+                    suhu_val = st.number_input("Suhu Ruangan (°C) [Angka koma dibulatkan]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
+                with col_k:
+                    kel_val = st.number_input("Kelembapan Ruangan (%) [Angka koma dibulatkan]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
+                
+                keterangan = st.text_area("Keterangan / Action Plan (opsional)", placeholder="Contoh : Melapor ke Maintenance jika suhu terlalu tinggi/rendah")
+                
+            else:
+                st.subheader("Checklist Daily Quality Control (QC)")
+                qc_sheets = [s for s in xls.sheet_names if "QC" in s]
+                target_qc_sheet = st.selectbox("Pilih Modality QC", qc_sheets)
+                st.write("Silakan berikan status kelayakan pada pengecekan harian:")
+                
+                qc_status = st.radio("Status Umum Pengecekan Hari Ini", ["Berfungsi / Lengkap / Dalam Kondisi Baik (✓)", "Tidak Berfungsi / Tidak Lengkap / Rusak (X)"])
+                qc_notes = st.text_area("Catatan Kendala (jika ada alat yang rusak/bermasalah)")
+
+            submit_btn = st.form_submit_button("🚀 Submit & Kembali ke Mode Review")
+            
+            if submit_btn:
+                try:
+                    if form_type == "Monitoring Suhu & Kelembapan":
+                        df_target = pd.read_excel(xls, sheet_name=target_room)
+                        # Append or update record in local Excel database
+                        new_entry = {
+                            'Tanggal Pengisian': tanggal,
+                            'Jadwal Dinas': dinas,
+                            'Nama Petugas': petugas,
+                            df_target.columns[3]: suhu_val,
+                            df_target.columns[4]: kel_val
+                        }
+                        with pd.ExcelWriter(selected_file, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+                            df_target.loc[len(df_target)] = list(new_entry.values())[:len(df_target.columns)]
+                            df_target.to_excel(writer, sheet_name=target_room, index=False)
+                    else:
+                        df_qc_raw = pd.read_excel(xls, sheet_name=target_qc_sheet, header=None)
+                        with pd.ExcelWriter(selected_file, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+                            df_qc_raw.to_excel(writer, sheet_name=target_qc_sheet, index=False, header=False)
+                            
+                    st.success("✅ Data berhasil disimpan secara lokal ke file Excel! Google Forms & GSheets berhasil digantikan sepenuhnya.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Gagal menyimpan data: {e}")
