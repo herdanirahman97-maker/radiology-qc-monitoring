@@ -486,9 +486,9 @@ else:
                 
                 col_s, col_k = st.columns(2)
                 with col_s:
-                    suhu_val = st.number_input("Suhu Ruangan (°C) [Angka koma dibulatkan]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
+                    suhu_val = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
                 with col_k:
-                    kel_val = st.number_input("Kelembapan Ruangan (%) [Angka koma dibulatkan]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
+                    kel_val = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
                 
                 keterangan = st.text_area("Keterangan / Action Plan (opsional)", placeholder="Contoh : Melapor ke Maintenance jika suhu terlalu tinggi/rendah")
                 
@@ -497,25 +497,58 @@ else:
                 qc_sheets = [s for s in xls.sheet_names if "QC" in s]
                 target_qc_sheet = st.selectbox("Pilih Modality QC", qc_sheets)
                 
-                # Load exact items from selected QC sheet
+                # Load exact items and parameters from selected QC sheet
                 df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_sheet, header=None)
+                param_idx = 5
+                for r_i in [8, 7, 6]:
+                    if r_i < len(df_qc_sheet):
+                        row_h = [str(x).upper() for x in df_qc_sheet.iloc[r_i].values]
+                        for c_i, val in enumerate(row_h):
+                            if "PARAMETER" in val:
+                                param_idx = c_i
+                                break
+                        if param_idx != 5:
+                            break
+
                 qc_items = []
+                current_category = ""
                 for idx, row in df_qc_sheet.iterrows():
                     if idx >= 8:
-                        r_vals = [str(x) for x in row.values if pd.notna(x)]
-                        if len(r_vals) >= 2 and r_vals[0].isdigit():
-                            qc_items.append((r_vals[0], r_vals[1]))
+                        r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
+                        r_text = " ".join(r_vals).upper()
+                        if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
+                            continue
+                        # Check category header
+                        non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
+                        if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
+                            current_category = non_empty[0]
+                            continue
+                        if len(r_vals) > 1 and r_vals[0].isdigit():
+                            keg = r_vals[1].strip()
+                            param = r_vals[param_idx].strip() if param_idx < len(r_vals) else ""
+                            if not param:
+                                for c in range(2, param_idx + 1):
+                                    if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
+                                        param = r_vals[c].strip()
+                                        break
+                            qc_items.append((current_category, r_vals[0], keg, param))
                 
-                st.write(f"Silakan centang status kelayakan untuk setiap parameter pada **{target_qc_sheet}**:")
+                st.write(f"Silakan lengkapi checklist parameter untuk **{target_qc_sheet}**:")
                 
                 qc_answers = {}
-                for no, kegiatan in qc_items:
-                    qc_answers[(no, kegiatan)] = st.radio(
-                        f"[{no}] {kegiatan}", 
-                        ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
-                        key=f"qc_{target_qc_sheet}_{no}"
+                active_cat = ""
+                for cat, no, keg, param in qc_items:
+                    if cat != active_cat:
+                        active_cat = cat
+                        st.markdown(f"#### 📌 {active_cat}")
+                    
+                    label = f"**{no}. {keg}** — *Parameter: {param}*" if param else f"**{no}. {keg}**"
+                    qc_answers[(no, keg)] = st.radio(
+                        label, 
+                        ["Berfungsi / Lengkap / Dalam Kondisi Baik (✓)", "Tidak Berfungsi / Tidak Lengkap / Rusak (X)"], 
+                        key=f"qc_{target_qc_sheet}_{no}_{keg}"
                     )
-                qc_notes = st.text_area("Catatan Kendala / Action Plan (jika ada yang rusak)")
+                qc_notes = st.text_area("Catatan Kendala / Action Plan QC (jika ada)")
 
             submit_btn = st.form_submit_button("🚀 Submit & Kembali ke Mode Review")
             
