@@ -18,6 +18,7 @@ LOGO_PATH = "logo.png"
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
+# --- PHASE 1: TEMPERATURE & HUMIDITY HTML BUILDER ---
 def build_room_html(sheet_name, file_name, df, logo_base64):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
     kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
@@ -89,7 +90,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; width: 15px;'>{shift}</td>"
     html += "</tr>"
     
-    # Suhu Rows (30 down to 15)
     for temp in range(30, 14, -1):
         html += "<tr>"
         is_out = temp < 18 or temp > 23
@@ -125,7 +125,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{shift}</td>"
     html += "</tr>"
     
-    # Kelembapan Rows (65 down to 30, step -5)
     for hum in range(65, 29, -5):
         html += "<tr>"
         is_out = hum < 40 or hum > 60
@@ -159,16 +158,51 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
     return html
 
+# --- PHASE 2: QC FORM HTML RENDERER ---
+def build_qc_html(sheet_name, file_name, df, logo_base64):
+    img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
+    bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
+    
+    # Convert Excel QC sheet directly into an elegant styled HTML table representation
+    df_clean = df.fillna("")
+    table_html = df_clean.to_html(index=False, header=False, border=0, classes="qc-table")
+    
+    html = f"""
+    <div class="page-container">
+        <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
+            <div style='flex: 0 0 auto;'>{img_html}</div>
+            <div style='flex: 1 1 auto; text-align: center;'>
+                <h1 style='margin: 0; font-weight: 700; font-size: 24px;'>Form Digital Daily Quality Control</h1>
+                <h3 style='margin: 4px 0 0 0; font-weight: 600; font-size: 15px; color: #333;'>Departemen Radiologi Tahun 2026</h3>
+            </div>
+            <div style='flex: 0 0 150px;'></div>
+        </div>
+        
+        <div style='font-weight: 700; font-size: 14px; margin-bottom: 10px; color: black;'>
+            MODALITY / SHEET : {sheet_name}<br>
+            BULAN : {bulan_name} 2026
+        </div>
+        
+        <div class="table-wrapper">
+            {table_html}
+        </div>
+        
+        <div class="trademark">Source & maintained by Herdani Rahman</div>
+    </div>
+    """
+    return html
+
+
+# --- MAIN APP LAYOUT & TABS ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
-    st.sidebar.header("Preview Data Bulan Sebelumnya")
+    st.sidebar.header("Navigasi Menu Utama")
+    app_mode = st.sidebar.radio("Pilih Modul:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
     
     selected_file = st.sidebar.selectbox("Pilih Bulan Database:", all_files)
     xls = pd.ExcelFile(selected_file)
-    raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
     
-    view_mode = st.sidebar.radio("Mode Tampilan:", ["Tampilkan 1 Ruangan", "Cetak Semua Ruangan (1 Bulan)"])
     logo_b64 = get_image_base64(LOGO_PATH)
     
     master_html_start = """
@@ -187,7 +221,6 @@ else:
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                min-height: 100vh;
             }
             .page-container {
                 width: 100%;
@@ -196,6 +229,16 @@ else:
                 padding: 20px;
                 box-sizing: border-box;
                 margin: auto;
+            }
+            .qc-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 10px;
+            }
+            .qc-table td, .qc-table th {
+                border: 1px solid black;
+                padding: 4px;
+                text-align: center;
             }
             @media print {
                 .no-print { display: none !important; }
@@ -236,26 +279,46 @@ else:
     """
     master_html_end = "</body></html>"
     
-    if view_mode == "Tampilkan 1 Ruangan":
+    if app_mode == "🌡️ Monitoring Suhu & Kelembapan":
+        raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
         selected_sheet = st.sidebar.selectbox(
             "Pilih Ruangan / Modality:", 
             raw_data_sheets, 
             format_func=lambda x: str(x).replace(" Oct", "").strip()
         )
-        if selected_sheet:
+        view_mode = st.sidebar.radio("Mode Tampilan:", ["Tampilkan 1 Ruangan", "Cetak Semua Ruangan (1 Bulan)"])
+        
+        if view_mode == "Tampilkan 1 Ruangan" and selected_sheet:
             df = pd.read_excel(xls, sheet_name=selected_sheet)
             room_html = build_room_html(selected_sheet, selected_file, df, logo_b64)
-            final_html = master_html_start + room_html + master_html_end
-            components.html(final_html, height=850, scrolling=True)
+            components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
             
-    elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
-        st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di atas.")
-        all_rooms_html = ""
-        for i, sheet in enumerate(raw_data_sheets):
-            df = pd.read_excel(xls, sheet_name=sheet)
-            all_rooms_html += build_room_html(sheet, selected_file, df, logo_b64)
-            if i < len(raw_data_sheets) - 1:
-                all_rooms_html += "<div class='page-break'></div>"
-                
-        final_html = master_html_start + all_rooms_html + master_html_end
-        components.html(final_html, height=850, scrolling=True)
+        elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
+            st.info("💡 Memuat semua ruangan suhu & kelembapan untuk dicetak.")
+            all_rooms_html = ""
+            for i, sheet in enumerate(raw_data_sheets):
+                df = pd.read_excel(xls, sheet_name=sheet)
+                all_rooms_html += build_room_html(sheet, selected_file, df, logo_b64)
+                if i < len(raw_data_sheets) - 1:
+                    all_rooms_html += "<div class='page-break'></div>"
+            components.html(master_html_start + all_rooms_html + master_html_end, height=850, scrolling=True)
+            
+    elif app_mode == "📋 Daily Quality Control (QC)":
+        qc_sheets = [s for s in xls.sheet_names if "QC" in s]
+        selected_qc = st.sidebar.selectbox("Pilih Lembar QC Modality:", qc_sheets)
+        qc_view_mode = st.sidebar.radio("Mode Tampilan QC:", ["Tampilkan 1 QC Sheet", "Cetak Semua QC Sheets (1 Bulan)"])
+        
+        if qc_view_mode == "Tampilkan 1 QC Sheet" and selected_qc:
+            df_qc = pd.read_excel(xls, sheet_name=selected_qc, header=None)
+            qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64)
+            components.html(master_html_start + qc_html + master_html_end, height=900, scrolling=True)
+            
+        elif qc_view_mode == "Cetak Semua QC Sheets (1 Bulan)":
+            st.info("💡 Memuat seluruh lembar QC modality untuk dicetak.")
+            all_qc_html = ""
+            for i, qsheet in enumerate(qc_sheets):
+                df_qc = pd.read_excel(xls, sheet_name=qsheet, header=None)
+                all_qc_html += build_qc_html(qsheet, selected_file, df_qc, logo_b64)
+                if i < len(qc_sheets) - 1:
+                    all_qc_html += "<div class='page-break'></div>"
+            components.html(master_html_start + all_qc_html + master_html_end, height=900, scrolling=True)
