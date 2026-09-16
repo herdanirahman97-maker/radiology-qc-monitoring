@@ -154,7 +154,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     
     html += f"""
         </table>
-        <div class="trademark">Source & maintained by Herdani Rahman</div>
+        <div class="trademark">Source & maintained by Herdani Rahman Account</div>
     </div>
     """
     return html
