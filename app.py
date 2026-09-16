@@ -164,13 +164,13 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     """
     return html
 
-# --- PHASE 2: PRECISE ACCURATE QC FORM BUILDER ---
+# --- PHASE 2: EXACT COLUMN MATCHING QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
-    
     modality_title = sheet_name.replace("QC ", "")
     
+    # Locate name row values
     name_row_vals = None
     for idx, row in df.iterrows():
         row_str = str(row.values)
@@ -198,7 +198,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     table_html = "<table class='qc-table'>"
     
     for idx, row in df.iterrows():
-        if idx < 8:
+        if idx < 7:
             continue
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
@@ -207,11 +207,12 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
         if idx >= 42 or any(kwd in row_text_joined for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO HARJANTO", "CHRISTOPHER", "PIC.", "KOORDINATOR", "HO. DEPT"]):
             continue
             
-        # Category header detection
-        non_empty_count = sum(1 for v in row_vals[1:10] if v.strip() != "")
-        is_category = (non_empty_count == 1 and row_vals[0] != "" and row_vals[0] != "NO" and "NAMA PEKERJA RADIASI" not in row_text_joined)
-        is_header = (row_vals[0] == "NO")
+        is_header = (row_vals[0] == "NO" or "KEGIATAN" in row_text_joined)
         is_names = ("NAMA PEKERJA RADIASI" in row_text_joined)
+        
+        # Category headers usually have text in column 0 or 1, and blanks across parameter/checklists
+        non_empty_cols = [i for i, v in enumerate(row_vals[:5]) if v.strip() != "" and v.strip() != "NO"]
+        is_category = (len(non_empty_cols) == 1 and not is_names and not is_header and row_vals[0] != "")
         
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
@@ -222,44 +223,41 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
                 table_html += f"<td style='border: 1px solid black; padding: 6px; text-align: center;' width='40px'>{d}</td>"
             table_html += "</tr>"
         elif is_category:
-            category_text = ""
+            cat_text = ""
             for v in row_vals:
-                if v.strip() != "" and v != "NO":
-                    category_text = v.strip()
+                if v.strip() != "":
+                    cat_text = v.strip()
                     break
-            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='36' style='border: 1px solid black; padding: 8px; color: #000;'>{category_text}</td></tr>"
+            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='36' style='border: 1px solid black; padding: 8px; color: #000;'>{cat_text}</td></tr>"
         elif is_names:
             continue
         else:
             if row_vals[0] == "" and all(v == "" for v in row_vals[1:5]):
                 continue
                 
-            # Extract Kegiatan (Activity) and Parameter (Description) correctly avoiding checkmarks
-            text_candidates = [v.strip() for v in row_vals[1:5] if v.strip() != "" and v.strip() != "✓" and v.strip() != "X"]
-            
-            kegiatan = text_candidates[0] if len(text_candidates) > 0 else ""
-            parameter = text_candidates[1] if len(text_candidates) > 1 else ""
-            
+            # Exact mapping for Kegiatan and Parameter based on standard template structure
+            # Column 1 = Kegiatan, Column 2/3 = Parameter description
+            kegiatan = row_vals[1].strip() if len(row_vals) > 1 else ""
+            parameter = ""
+            for c_idx in [2, 3, 4]:
+                if c_idx < len(row_vals) and row_vals[c_idx].strip() != "" and row_vals[c_idx].strip() not in ["✓", "X"]:
+                    parameter = row_vals[c_idx].strip()
+                    break
+                    
             table_html += "<tr style='height: 30px;'>"
             table_html += f"<td style='border: 1px solid black; padding: 5px; text-align: center;' width='45px'>{row_vals[0]}</td>"
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{kegiatan}</td>"
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{parameter}</td>"
             
+            # Days 1 to 31 checklist values (typically starting around column index 5 or 6)
             for day_idx in range(1, 32):
                 val = ""
-                for offset in range(5, len(row_vals)):
-                    cell_val = row_vals[offset].strip()
-                    # Check if this column aligns with day day_idx (checking header offset or sequential checkmarks)
-                    if cell_val in ["✓", "X"] or (len(cell_val) <= 2 and not cell_val.isalpha()):
-                        # Match by position or assign
-                        pass
-                
-                # Grab from day offset
-                for offset in [5, 6, 7, 8, 9, 10, 11, 12]:
-                    if (day_idx + offset - 1) < len(row_vals):
-                        cand = row_vals[day_idx + offset - 1].strip()
-                        if cand in ["✓", "X"] or (len(cand) <= 3 and cand != ""):
-                            val = cand
+                # Scan columns to find matching day cell
+                for col_idx in [4 + day_idx, 5 + day_idx, 3 + day_idx]:
+                    if col_idx < len(row_vals):
+                        cell_val = row_vals[col_idx].strip()
+                        if cell_val in ["✓", "X"] or (len(cell_val) <= 2 and cell_val != ""):
+                            val = cell_val
                             break
                 if not val or val == "" or "#REF!" in val:
                     val = "✓"
@@ -272,10 +270,10 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     for day_idx in range(1, 32):
         val = ""
         if name_row_vals:
-            for offset in [5, 6, 7, 8, 9, 10, 11, 12]:
-                if (day_idx + offset - 1) < len(name_row_vals):
-                    cand = name_row_vals[day_idx + offset - 1].strip()
-                    if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER", "KOORDINATOR"]):
+            for col_idx in [4 + day_idx, 5 + day_idx, 3 + day_idx]:
+                if col_idx < len(name_row_vals):
+                    cand = name_row_vals[col_idx].strip()
+                    if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
                         val = cand
                         break
         if not val or "#REF!" in val:
