@@ -73,7 +73,8 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             BULAN : {bulan_name} 2026
         </div>
         
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1100px;'>
+        <div class="table-scroll-wrapper">
+        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1400px;'>
     """
 
     html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>SUHU</th>"
@@ -153,12 +154,13 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     
     html += f"""
         </table>
+        </div>
         <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
 
-# --- PHASE 2: CLEAN PROPORTIONAL QC FORM BUILDER ---
+# --- PHASE 2: SCROLLABLE SPACIOUS QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -180,6 +182,8 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             MODALITAS : {modality_title}<br>
             BULAN : {bulan_name} 2026
         </div>
+        
+        <div class="table-scroll-wrapper">
     """
     
     table_html = "<table class='qc-table'>"
@@ -190,7 +194,6 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
         
-        # Check specific row types
         is_category = (row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO")
         is_header = (row_vals[0] == "NO")
         is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
@@ -200,39 +203,33 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
-            # Keep columns 0 (NO), 1 (KEGIATAN), 4 (PARAMETER), and 6 to 36 (Days 1-31)
-            # Skip empty columns 2, 3, 5 to avoid double borders/spacing issues
             cols_to_use = [0, 1, 4] + list(range(6, min(37, len(row_vals))))
             for c in cols_to_use:
                 val = row_vals[c] if c < len(row_vals) else ""
                 colspan = "3" if c == 1 or c == 4 else "1"
-                table_html += f"<td colspan='{colspan}' style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
+                table_html += f"<td colspan='{colspan}' style='border: 1px solid black; padding: 6px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         elif is_category:
-            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='35' style='border: 1px solid black; padding: 6px; color: #000;'>{row_vals[0]}</td></tr>"
+            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='35' style='border: 1px solid black; padding: 8px; color: #000;'>{row_vals[0]}</td></tr>"
         elif is_names:
-            table_html += "<tr style='background-color: #C9DAF8; font-weight: bold;'>"
-            table_html += "<td colspan='3' style='border: 1px solid black; padding: 4px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
+            table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
+            table_html += "<td colspan='3' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
             for c in range(6, min(37, len(row_vals))):
                 val = row_vals[c] if c < len(row_vals) else ""
-                table_html += f"<td style='border: 1px solid black; padding: 3px; font-size: 8px; text-align: center;'>{val}</td>"
+                table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         else:
-            table_html += "<tr>"
-            # NO
-            table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;' width='35px'>{row_vals[0]}</td>"
-            # KEGIATAN (span 2)
-            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 4px; text-align: left;' width='180px'>{row_vals[1] if row_vals[1] != '' else row_vals[2]}</td>"
-            # PARAMETER (span 2)
-            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 4px; text-align: left;' width='220px'>{row_vals[4] if row_vals[4] != '' else row_vals[5]}</td>"
+            table_html += "<tr style='height: 30px;'>"
+            table_html += f"<td style='border: 1px solid black; padding: 5px; text-align: center;' width='45px'>{row_vals[0]}</td>"
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{row_vals[1] if row_vals[1] != '' else row_vals[2]}</td>"
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{row_vals[4] if row_vals[4] != '' else row_vals[5]}</td>"
             
-            # Days 1 to 31
             for c in range(6, min(37, len(row_vals))):
                 val = row_vals[c] if c < len(row_vals) else ""
-                table_html += f"<td style='border: 1px solid black; padding: 3px; text-align: center;'>{val}</td>"
+                table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             
-    table_html += "</table>"
+    table_html += "</table></div>"
     html += table_html
     
     sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<br><br>"
@@ -240,7 +237,7 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
     sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<br><br>"
     
     html += f"""
-    <div style="display: flex; justify-content: space-between; margin-top: 25px; align-items: flex-start;">
+    <div style="display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-start;">
         <div style="border: 1px solid black; width: 300px; font-size: 10px;">
             <div style="background-color: #d9d9d9; padding: 6px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
             <div style="padding: 8px; line-height: 1.4;">
@@ -316,15 +313,21 @@ else:
                 box-sizing: border-box;
                 margin: auto;
             }
+            .table-scroll-wrapper {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-bottom: 10px;
+            }
             .qc-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 9px;
+                font-size: 10px;
                 table-layout: fixed;
+                min-width: 1400px;
             }
             .qc-table td {
                 border: 1px solid black;
-                padding: 3px;
                 overflow: hidden;
             }
             @media print {
@@ -332,6 +335,7 @@ else:
                 @page { size: landscape; margin: 0; }
                 body { padding: 10mm; display: block; }
                 .page-container { margin: 0 auto; width: 100%; max-width: none; }
+                .table-scroll-wrapper { overflow: visible !important; }
                 .page-break { page-break-after: always; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
