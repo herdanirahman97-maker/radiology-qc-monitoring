@@ -7,22 +7,29 @@ import math
 
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
 
-def get_image_base64(image_path):
-    if os.path.exists(image_path):
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
+def get_image_base64(base_name):
+    # Check for common extensions and also no extension
+    possible_names = [f"{base_name}.png", f"{base_name}.jpg", f"{base_name}.jpeg", base_name]
+    
+    for file_name in possible_names:
+        if os.path.exists(file_name):
+            with open(file_name, "rb") as img_file:
+                # Detect mime type based on extension, default to jpeg if no extension
+                mime_type = "image/png" if file_name.endswith(".png") else "image/jpeg"
+                b64_str = base64.b64encode(img_file.read()).decode()
+                return f"data:{mime_type};base64,{b64_str}"
     return ""
 
-LOGO_PATH = "logo.png"
-SIG1_PATH = "sig1.png"
-SIG2_PATH = "sig2.png"
-SIG3_PATH = "sig3.png"
+LOGO_PATH = "logo" # Automatically finds logo.png, logo.jpg, or logo
+SIG1_PATH = "sig1"
+SIG2_PATH = "sig2"
+SIG3_PATH = "sig3"
 
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
 # --- PHASE 1: TEMPERATURE & HUMIDITY HTML BUILDER ---
-def build_room_html(sheet_name, file_name, df, logo_base64):
+def build_room_html(sheet_name, file_name, df, logo_data_uri):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
     kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
     
@@ -51,7 +58,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 if data_dict[(d, s)]['nama'] is None or data_dict[(d, s)]['nama'] == "":
                     data_dict[(d, s)]['nama'] = 'HR'
 
-    img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
+    img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     ruang_name = sheet_name.replace(" Oct", "")
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
@@ -159,8 +166,8 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     return html
 
 # --- PHASE 2: FULL QC FORM BUILDER WITH DYNAMIC WORKER NAMES & HR FALLBACK ---
-def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
-    img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
+def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
+    img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
     modality_title = sheet_name.replace("QC ", "")
@@ -245,9 +252,9 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
     table_html += "</table>"
     html += table_html
     
-    sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 1]</div>"
-    sig2_img = f"<img src='data:image/png;base64,{sig2_b64}' width='110'>" if sig2_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 2]</div>"
-    sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 3]</div>"
+    sig1_img = f"<img src='{sig1_uri}' width='110'>" if sig1_uri else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 1]</div>"
+    sig2_img = f"<img src='{sig2_uri}' width='110'>" if sig2_uri else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 2]</div>"
+    sig3_img = f"<img src='{sig3_uri}' width='110'>" if sig3_uri else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 3]</div>"
     
     html += f"""
     <div style="display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-start; width: 100%;">
