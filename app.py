@@ -14,9 +14,9 @@ def get_image_base64(image_path):
     return ""
 
 LOGO_PATH = "logo.png"
-SIG1_PATH = "sig1.png"
-SIG2_PATH = "sig2.png"
-SIG3_PATH = "sig3.png"
+SIG1_PATH = "sig1.jpeg"
+SIG2_PATH = "sig2.jpeg"
+SIG3_PATH = "sig3.jpeg"
 
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
