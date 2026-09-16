@@ -153,20 +153,20 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     
     html += f"""
         </table>
-        <div class="trademark">Source & maintained by Herdani Rahman Account</div>
+        <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
 
-# --- PHASE 2: QC FORM HTML RENDERER ---
+# --- PHASE 2: QC FORM TEMPLATE BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_base64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
-    # Convert Excel QC sheet directly into an elegant styled HTML table representation
-    df_clean = df.fillna("")
-    table_html = df_clean.to_html(index=False, header=False, border=0, classes="qc-table")
+    # Extract modality title and clean up dataframe to match template layout exactly
+    modality_title = sheet_name.replace("QC ", "")
     
+    # Start building clean HTML representation matching the exact QC template format
     html = f"""
     <div class="page-container">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
@@ -178,18 +178,49 @@ def build_qc_html(sheet_name, file_name, df, logo_base64):
             <div style='flex: 0 0 150px;'></div>
         </div>
         
-        <div style='font-weight: 700; font-size: 14px; margin-bottom: 10px; color: black;'>
-            MODALITY / SHEET : {sheet_name}<br>
+        <div style='font-weight: 700; font-size: 13px; margin-bottom: 10px; color: black;'>
+            MODALITAS : {modality_title}<br>
             BULAN : {bulan_name} 2026
         </div>
-        
-        <div class="table-wrapper">
-            {table_html}
-        </div>
-        
-        <div class="trademark">Source & maintained by Herdani Rahman</div>
-    </div>
     """
+    
+    # We render the template rows directly with styled formatting matching the reference image
+    table_html = "<table class='qc-table'>"
+    
+    # Iterate through the rows of the excel template sheet
+    for idx, row in df.iterrows():
+        # Skip title rows that are already displayed above
+        if idx < 8:
+            continue
+            
+        row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
+        
+        # Check if it's a category header row (e.g., "Cek Kelengkapan & Peralatan Penunjang")
+        is_category = row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO"
+        is_header = row_vals[0] == "NO"
+        is_names = "NAMA PEKERJA RADIASI" in str(row.values)
+        
+        if is_header:
+            table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
+            for val in row_vals[:37]: # 37 columns (NO, KEGIATAN, PARAMETER, 1-31)
+                table_html += f"<td style='border: 1px solid black; padding: 4px;'>{val}</td>"
+            table_html += "</tr>"
+        elif is_category:
+            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='37' style='border: 1px solid black; padding: 5px; color: #000;'>{row_vals[0]}</td></tr>"
+        elif is_names:
+            table_html += "<tr style='background-color: #C9DAF8; font-weight: bold;'>"
+            for val in row_vals[:37]:
+                table_html += f"<td style='border: 1px solid black; padding: 3px; font-size: 9px;'>{val}</td>"
+            table_html += "</tr>"
+        else:
+            table_html += "<tr>"
+            for col_idx, val in enumerate(row_vals[:37]):
+                align = "left" if col_idx in [1, 2, 4] else "center"
+                table_html += f"<td style='border: 1px solid black; padding: 3px; text-align: {align};'>{val}</td>"
+            table_html += "</tr>"
+            
+    table_html += "</table>"
+    html += table_html + '<div class="trademark">Source & maintained by Herdani Rahman</div></div>'
     return html
 
 
@@ -224,7 +255,7 @@ else:
             }
             .page-container {
                 width: 100%;
-                max-width: 1350px;
+                max-width: 1400px;
                 background: white;
                 padding: 20px;
                 box-sizing: border-box;
@@ -233,12 +264,11 @@ else:
             .qc-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 10px;
+                font-size: 9px;
             }
-            .qc-table td, .qc-table th {
+            .qc-table td {
                 border: 1px solid black;
-                padding: 4px;
-                text-align: center;
+                padding: 3px;
             }
             @media print {
                 .no-print { display: none !important; }
