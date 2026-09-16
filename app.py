@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import base64
 import os
@@ -41,14 +42,11 @@ else:
     )
     
     if selected_sheet:
-        # Load raw data from the selected month and room
         df = pd.read_excel(xls, sheet_name=selected_sheet)
         
-        # Identify columns dynamically
         suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
         kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
         
-        # Build dictionary for fast lookup by (Day, Shift)
         data_dict = {}
         if suhu_col and kel_col:
             for _, row in df.dropna(subset=['Tanggal Pengisian', 'Jadwal Dinas']).iterrows():
@@ -64,7 +62,7 @@ else:
                 except:
                     continue
 
-        # Auto-fill missing data (22°C, 55%, HR) for all 31 days & shifts
+        # Auto-fill missing data (22°C, 55%, HR)
         for d in range(1, 32):
             for s in ['P', 'S', 'M']:
                 if (d, s) not in data_dict:
@@ -77,36 +75,76 @@ else:
                     if data_dict[(d, s)]['nama'] is None or data_dict[(d, s)]['nama'] == "":
                         data_dict[(d, s)]['nama'] = 'HR'
 
-        # Generate Custom HTML Grid
         logo_base64 = get_image_base64(LOGO_PATH)
         img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
         
         ruang_name = selected_sheet.replace(" Oct", "")
         bulan_name = selected_file.split(".")[1].replace("xlsx", "").strip().upper()
         
-        header_bg = "#002B5B" # Dark Blue background for headers
-        header_fg = "#FFFFFF" # White text for headers
-        nama_bg = "#C9DAF8"   # Light blue for NAMA row
+        header_bg = "#002B5B" 
+        header_fg = "#FFFFFF" 
+        nama_bg = "#C9DAF8"   
         
+        # We wrap everything in a complete HTML document to isolate it for printing
         html = f"""
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
-        </style>
-        
-        <div style='display: flex; align-items: center; margin-bottom: 20px; color: inherit; font-family: "Lexend", sans-serif;'>
-            <div style='flex: 0 0 auto;'>{img_html}</div>
-            <div style='flex: 1 1 auto; text-align: center;'>
-                <h3 style='margin: 0; font-weight: 700;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
-                <h4 style='margin: 0; font-weight: 600;'>Departemen Radiologi Tahun 2026</h4>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
+                body {{
+                    background-color: white;
+                    color: black;
+                    font-family: 'Lexend', sans-serif;
+                    padding: 20px;
+                    margin: 0;
+                }}
+                /* CSS for printing perfectly */
+                @media print {{
+                    .no-print {{ display: none !important; }}
+                    body {{ padding: 0; }}
+                    * {{ 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important; 
+                    }}
+                    @page {{ size: landscape; margin: 10mm; }}
+                }}
+                .print-btn {{
+                    background-color: #002B5B;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    font-family: 'Lexend', sans-serif;
+                    font-weight: 700;
+                    font-size: 14px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin-bottom: 20px;
+                }}
+                .print-btn:hover {{ background-color: #004080; }}
+            </style>
+        </head>
+        <body>
+            
+            <div class="no-print">
+                <button class="print-btn" onclick="window.print()">🖨️ Download / Save as PDF</button>
             </div>
-        </div>
-        <div style='font-family: "Lexend", sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 10px; color: inherit;'>
-            RUANG : {ruang_name}<br>
-            BULAN : {bulan_name} 2026
-        </div>
-        
-        <div style='overflow-x: auto;'>
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: "Lexend", sans-serif; min-width: 1200px;'>
+
+            <div style='display: flex; align-items: center; margin-bottom: 20px; color: black;'>
+                <div style='flex: 0 0 auto;'>{img_html}</div>
+                <div style='flex: 1 1 auto; text-align: center;'>
+                    <h3 style='margin: 0; font-weight: 700;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
+                    <h4 style='margin: 0; font-weight: 600;'>Departemen Radiologi Tahun 2026</h4>
+                </div>
+            </div>
+            
+            <div style='font-weight: 700; font-size: 14px; margin-bottom: 10px; color: black;'>
+                RUANG : {ruang_name}<br>
+                BULAN : {bulan_name} 2026
+            </div>
+            
+            <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1200px;'>
         """
 
         # --- SUHU SECTION ---
@@ -189,6 +227,11 @@ else:
                 html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
         html += "</tr>"
         
-        html += "</table></div>"
+        html += """
+            </table>
+        </body>
+        </html>
+        """
         
-        st.markdown(html, unsafe_allow_html=True)
+        # Use components.html to render the iframe with JS print functionality
+        components.html(html, height=1200, scrolling=True)
