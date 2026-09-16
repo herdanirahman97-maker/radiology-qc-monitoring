@@ -3,9 +3,28 @@ import streamlit.components.v1 as components
 import pandas as pd
 import base64
 import os
+import json
 import math
+from datetime import datetime
 
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
+
+# --- DATABASE LOKAL (JSON STORAGE) ---
+DB_QC_FILE = "db_qc_local.json"
+DB_SUHU_FILE = "db_suhu_local.json"
+
+def load_local_db(filepath):
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            try:
+                return json.load(f)
+            except:
+                return {}
+    return {}
+
+def save_local_db(filepath, data):
+    with open(filepath, "w") as f:
+        json.dump(data, f, indent=4)
 
 def get_image_base64(base_name):
     possible_names = [f"{base_name}.png", f"{base_name}.jpg", f"{base_name}.jpeg", base_name]
@@ -45,6 +64,18 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
                 data_dict[(day, shift)] = {'suhu': suhu, 'kel': kel, 'nama': nama}
             except:
                 continue
+
+    # Merge with local JSON database entries if available
+    local_suhu_db = load_local_db(DB_SUHU_FILE)
+    if file_name in local_suhu_db and sheet_name in local_suhu_db[file_name]:
+        for entry in local_suhu_db[file_name][sheet_name]:
+            d = int(entry['tanggal'])
+            s = entry['dinas'].upper()
+            data_dict[(d, s)] = {
+                'suhu': float(entry['suhu']), 
+                'kel': float(entry['kelembapan']), 
+                'nama': entry['petugas']
+            }
 
     for d in range(1, 32):
         for s in ['P', 'S', 'M']:
@@ -190,6 +221,10 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             name_row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
             break
             
+    # Load local QC database overrides
+    local_qc_db = load_local_db(DB_QC_FILE)
+    sheet_overrides = local_qc_db.get(file_name, {}).get(sheet_name, {})
+
     html = f"""
     <div class="page-container">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
@@ -208,6 +243,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     
     table_html = "<table class='qc-table'>"
+    row_counter = 0
     
     for idx, row in df.iterrows():
         if idx < 8:
@@ -258,27 +294,36 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             
             for day_idx in range(1, 32):
                 val = ""
-                target_col = param_col_idx + day_idx
-                if target_col < len(row_vals):
-                    cand = row_vals[target_col].strip()
-                    if cand in ["✓", "X"] or (len(cand) <= 2 and cand != ""):
-                        val = cand
-                if not val or val == "" or "#REF!" in val:
-                    val = "✓"
+                # Check local database override first
+                if str(day_idx) in sheet_overrides and str(row_counter) in sheet_overrides[str(day_idx)]:
+                    val = sheet_overrides[str(day_idx)][str(row_counter)].get('status', '✓')
+                else:
+                    target_col = param_col_idx + day_idx
+                    if target_col < len(row_vals):
+                        cand = row_vals[target_col].strip()
+                        if cand in ["✓", "X"] or (len(cand) <= 2 and cand != ""):
+                            val = cand
+                    if not val or val == "" or "#REF!" in val:
+                        val = "✓"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
+            row_counter += 1
             
     # --- RENDER NAMA PEKERJA RADIASI AT THE ABSOLUTE BOTTOM ---
     table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
     table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
     for day_idx in range(1, 32):
         val = ""
-        if name_row_vals:
-            target_col = param_col_idx + day_idx
-            if target_col < len(name_row_vals):
-                cand = name_row_vals[target_col].strip()
-                if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
-                    val = cand
+        # Check local override for worker name
+        if str(day_idx) in sheet_overrides and 'worker' in sheet_overrides[str(day_idx)]:
+            val = sheet_overrides[str(day_idx)]['worker']
+        else:
+            if name_row_vals:
+                target_col = param_col_idx + day_idx
+                if target_col < len(name_row_vals):
+                    cand = name_row_vals[target_col].strip()
+                    if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
+                        val = cand
         if not val or "#REF!" in val:
             val = "HR"
         table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
@@ -328,18 +373,19 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- MAIN APP LAYOUT ---
+# --- MAIN APP LAYOUT (PENGATURAN MODE REVIEW VS INPUT) ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
     st.sidebar.header("Navigasi Menu Utama")
-    app_mode = st.sidebar.radio("Pilih Modul:", [
-        "🌡️ Monitoring Suhu & Kelembapan (Review)", 
-        "📋 Daily Quality Control (Review)", 
-        "📝 Form Pengisian Data (GForm Replacement)"
+    
+    # Pemisahan jelas antara Review Mode dan Input Mode (Phase 3)
+    app_mode = st.sidebar.radio("Pilih Mode Akses:", [
+        "🖥️ Mode Review & Cetak (Dashboard)", 
+        "📱 Mode Input Petugas (Scan Barcode / Form Mandiri)"
     ])
     
-    selected_file = st.sidebar.selectbox("Pilih Bulan Database:", all_files)
+    selected_file = st.sidebar.selectbox("Pilih Bulan Database Arsip:", all_files)
     xls = pd.ExcelFile(selected_file)
     
     logo_b64 = get_image_base64(LOGO_PATH)
@@ -417,88 +463,63 @@ else:
     """
     master_html_end = "</body></html>"
     
-    if app_mode == "🌡️ Monitoring Suhu & Kelembapan (Review)":
-        raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
-        selected_sheet = st.sidebar.selectbox(
-            "Pilih Ruangan / Modality:", 
-            raw_data_sheets, 
-            format_func=lambda x: str(x).replace(" Oct", "").strip()
-        )
-        view_mode = st.sidebar.radio("Mode Tampilan:", ["Tampilkan 1 Ruangan", "Cetak Semua Ruangan (1 Bulan)"])
+    if app_mode == "🖥️ Mode Review & Cetak (Dashboard)":
+        review_type = st.sidebar.radio("Pilih Tinjauan:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
         
-        if view_mode == "Tampilkan 1 Ruangan" and selected_sheet:
+        if review_type == "🌡️ Suhu & Kelembapan":
+            raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
+            selected_sheet = st.sidebar.selectbox(
+                "Pilih Ruangan / Modality:", 
+                raw_data_sheets, 
+                format_func=lambda x: str(x).replace(" Oct", "").strip()
+            )
             df = pd.read_excel(xls, sheet_name=selected_sheet)
             room_html = build_room_html(selected_sheet, selected_file, df, logo_b64)
             components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
             
-        elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
-            st.info("💡 Memuat semua ruangan suhu & kelembapan untuk dicetak.")
-            all_rooms_html = ""
-            for i, sheet in enumerate(raw_data_sheets):
-                df = pd.read_excel(xls, sheet_name=sheet)
-                all_rooms_html += build_room_html(sheet, selected_file, df, logo_b64)
-                if i < len(raw_data_sheets) - 1:
-                    all_rooms_html += "<div class='page-break'></div>"
-            components.html(master_html_start + all_rooms_html + master_html_end, height=850, scrolling=True)
-            
-    elif app_mode == "📋 Daily Quality Control (Review)":
-        qc_sheets = [s for s in xls.sheet_names if "QC" in s]
-        selected_qc = st.sidebar.selectbox("Pilih Lembar QC Modality:", qc_sheets)
-        qc_view_mode = st.sidebar.radio("Mode Tampilan QC:", ["Tampilkan 1 QC Sheet", "Cetak Semua QC Sheets (1 Bulan)"])
-        
-        if qc_view_mode == "Tampilkan 1 QC Sheet" and selected_qc:
+        else:
+            qc_sheets = [s for s in xls.sheet_names if "QC" in s]
+            selected_qc = st.sidebar.selectbox("Pilih Lembar QC Modality:", qc_sheets)
             df_qc = pd.read_excel(xls, sheet_name=selected_qc, header=None)
             qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
-            
-        elif qc_view_mode == "Cetak Semua QC Sheets (1 Bulan)":
-            st.info("💡 Memuat seluruh lembar QC modality untuk dicetak.")
-            all_qc_html = ""
-            for i, qsheet in enumerate(qc_sheets):
-                df_qc = pd.read_excel(xls, sheet_name=qsheet, header=None)
-                all_qc_html += build_qc_html(qsheet, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
-                if i < len(qc_sheets) - 1:
-                    all_qc_html += "<div class='page-break'></div>"
-            components.html(master_html_start + all_qc_html + master_html_end, height=850, scrolling=True)
 
-    elif app_mode == "📝 Form Pengisian Data (GForm Replacement)":
-        st.header("📝 Form Pengisian Digital (Pengganti Google Forms)")
-        st.write(f"Database aktif: **{selected_file}**")
+    elif app_mode == "📱 Mode Input Petugas (Scan Barcode / Form Mandiri)":
+        st.header("📱 Halaman Pengisian Mandiri Petugas (Barcode Scan Target)")
+        st.write("Formulir ini diakses langsung oleh petugas radiologi saat melakukan pengecekan harian.")
         
-        form_type = st.radio("Pilih Formulir:", ["Monitoring Suhu & Kelembapan", "Form Digital Daily QC (Item-by-Item Checklist)"])
+        form_category = st.radio("Pilih Jenis Form Pengisian:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
         
-        with st.form("gform_replacement_form"):
-            st.subheader("Informasi Petugas & Waktu")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                petugas = st.selectbox("Nama Petugas", OFFICER_INITIALS)
-            with col2:
-                tanggal = st.selectbox("Tanggal Pengisian", list(range(1, 32)))
-            with col3:
-                dinas = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
-                
-            st.info("💡 **Ket**: Form QC diisi oleh petugas pada **dinas Pagi (P)**. Petugas Siang dan Malam dapat mengisi form monitoring suhu dan kelembapan.")
+        with st.form("standalone_input_form"):
+            st.subheader("1. Identitas & Waktu")
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
+            with col_b:
+                tanggal_input = st.selectbox("Tanggal Pengisian (1-31)", list(range(1, 32)))
+            with col_c:
+                dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
 
-            if form_type == "Monitoring Suhu & Kelembapan":
-                st.subheader("Parameter Suhu & Kelembapan Ruangan")
+            if form_category == "🌡️ Monitoring Suhu & Kelembapan":
+                st.subheader("2. Input Suhu & Kelembapan")
                 raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
-                target_room = st.selectbox("Pilih Ruangan / Modality", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
+                target_room_input = st.selectbox("Pilih Ruangan", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
                 
                 col_s, col_k = st.columns(2)
                 with col_s:
-                    suhu_val = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
+                    suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
                 with col_k:
-                    kel_val = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
+                    kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
                 
-                keterangan = st.text_area("Keterangan / Action Plan (opsional)", placeholder="Contoh : Melapor ke Maintenance jika suhu terlalu tinggi/rendah")
+                action_plan = st.text_area("Keterangan / Tindakan (opsional)")
                 
             else:
-                st.subheader("Checklist Item-by-Item Daily Quality Control (QC)")
+                st.subheader("2. Checklist Daily QC Sesuai Modalitas")
                 qc_sheets = [s for s in xls.sheet_names if "QC" in s]
-                target_qc_sheet = st.selectbox("Pilih Modality QC", qc_sheets)
+                target_qc_input = st.selectbox("Pilih Modalitas QC", qc_sheets)
                 
-                # Load exact items and parameters from selected QC sheet
-                df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_sheet, header=None)
+                # Dynamic load of parameters for selected modality
+                df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_input, header=None)
                 param_idx = 5
                 for r_i in [8, 7, 6]:
                     if r_i < len(df_qc_sheet):
@@ -510,18 +531,17 @@ else:
                         if param_idx != 5:
                             break
 
-                qc_items = []
-                current_category = ""
+                qc_items_list = []
+                curr_cat = ""
                 for idx, row in df_qc_sheet.iterrows():
                     if idx >= 8:
                         r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
                         r_text = " ".join(r_vals).upper()
                         if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
                             continue
-                        # Check category header
                         non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
                         if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
-                            current_category = non_empty[0]
+                            curr_cat = non_empty[0]
                             continue
                         if len(r_vals) > 1 and r_vals[0].isdigit():
                             keg = r_vals[1].strip()
@@ -531,47 +551,93 @@ else:
                                     if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
                                         param = r_vals[c].strip()
                                         break
-                            qc_items.append((current_category, r_vals[0], keg, param))
-                
-                st.write(f"Silakan lengkapi checklist parameter untuk **{target_qc_sheet}**:")
-                
-                qc_answers = {}
-                active_cat = ""
-                for cat, no, keg, param in qc_items:
-                    if cat != active_cat:
-                        active_cat = cat
-                        st.markdown(f"#### 📌 {active_cat}")
+                            qc_items_list.append((curr_cat, r_vals[0], keg, param))
+
+                qc_responses = {}
+                active_category = ""
+                row_idx_tracker = 0
+                for cat, no, keg, param in qc_items_list:
+                    if cat != active_category:
+                        active_category = cat
+                        st.markdown(f"#### 📌 {active_category}")
                     
                     label = f"**{no}. {keg}** — *Parameter: {param}*" if param else f"**{no}. {keg}**"
-                    qc_answers[(no, keg)] = st.radio(
+                    qc_responses[row_idx_tracker] = st.radio(
                         label, 
-                        ["Berfungsi / Lengkap / Dalam Kondisi Baik (✓)", "Tidak Berfungsi / Tidak Lengkap / Rusak (X)"], 
-                        key=f"qc_{target_qc_sheet}_{no}_{keg}"
+                        ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
+                        key=f"input_qc_{target_qc_input}_{row_idx_tracker}"
                     )
-                qc_notes = st.text_area("Catatan Kendala / Action Plan QC (jika ada)")
+                    row_idx_tracker += 1
 
-            submit_btn = st.form_submit_button("🚀 Submit & Kembali ke Mode Review")
+            submitted_data = st.form_submit_button("🚀 Submit Data Harian")
             
-            if submit_btn:
-                try:
-                    if form_type == "Monitoring Suhu & Kelembapan":
-                        df_target = pd.read_excel(xls, sheet_name=target_room)
-                        new_entry = {
-                            'Tanggal Pengisian': tanggal,
-                            'Jadwal Dinas': dinas,
-                            'Nama Petugas': petugas,
-                            df_target.columns[3]: suhu_val,
-                            df_target.columns[4]: kel_val
-                        }
-                        with pd.ExcelWriter(selected_file, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                            df_target.loc[len(df_target)] = list(new_entry.values())[:len(df_target.columns)]
-                            df_target.to_excel(writer, sheet_name=target_room, index=False)
-                    else:
-                        df_qc_raw = pd.read_excel(xls, sheet_name=target_qc_sheet, header=None)
-                        with pd.ExcelWriter(selected_file, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                            df_qc_raw.to_excel(writer, sheet_name=target_qc_sheet, index=False, header=False)
-                            
-                    st.success("✅ Data berhasil disimpan secara lokal ke file Excel! Silakan pilih menu Review di sidebar untuk melihat hasilnya.")
+            if submitted_data:
+                if form_category == "🌡️ Monitoring Suhu & Kelembapan":
+                    local_suhu = load_local_db(DB_SUHU_FILE)
+                    if selected_file not in local_suhu:
+                        local_suhu[selected_file] = {}
+                    if target_room_input not in local_suhu[selected_file]:
+                        local_suhu[selected_file][target_room_input] = []
+                        
+                    local_suhu[selected_file][target_room_input].append({
+                        "tanggal": tanggal_input,
+                        "dinas": dinas_input,
+                        "petugas": petugas_input,
+                        "suhu": suhu_input,
+                        "kelembapan": kel_input
+                    })
+                    save_local_db(DB_SUHU_FILE, local_suhu)
+                    st.success("✅ Data Suhu & Kelembapan berhasil disimpan secara real-time ke database lokal! Silakan cek di Mode Review.")
                     st.balloons()
-                except Exception as e:
-                    st.error(f"Gagal menyimpan data: {e}")
+                else:
+                    local_qc = load_local_db(DB_QC_FILE)
+                    if selected_file not in local_qc:
+                        local_qc[selected_file] = {}
+                    if target_qc_input not in local_qc[selected_file]:
+                        local_qc[selected_file][target_qc_input] = {}
+                        
+                    day_key = str(tanggal_input)
+                    if day_key not in local_qc[selected_file][target_qc_input]:
+                        local_qc[selected_file][target_qc_input][day_key] = {}
+                        
+                    local_qc[selected_file][target_qc_input][day_key]['worker'] = petugas_input
+                    for r_idx, resp in qc_responses.items():
+                        symbol = "✓" if "Baik" in resp else "X"
+                        local_qc[selected_file][target_qc_input][day_key][str(r_idx)] = {"status": symbol}
+                        
+                    save_local_db(DB_QC_FILE, local_qc)
+                    st.success("✅ Data Checklist QC berhasil disimpan secara real-time ke database lokal! Silakan cek di Mode Review.")
+                    st.balloons()
+
+    # --- FITUR KOREKSI / PENGHAPUSAN DATA SALAH INPUT (MANAJEMEN DATABASE LOKAL) ---
+    st.sidebar.markdown("---")
+    if st.sidebar.checkbox("⚙️ Kelola / Hapus Data Salah Input"):
+        st.subheader("⚙️ Pengelolaan Riwayat Database Lokal (Koreksi / Hapus)")
+        db_type_to_clean = st.selectbox("Pilih Database:", ["QC", "Suhu & Kelembapan"])
+        
+        if db_type_to_clean == "QC":
+            current_qc_db = load_local_db(DB_QC_FILE)
+            if selected_file in current_qc_db:
+                st.write(f"Data tersimpan untuk file **{selected_file}**:")
+                for modality, days in current_qc_db[selected_file].items():
+                    for d_key in list(days.keys()):
+                        if st.button(f"Hapus Rekap {modality} - Tanggal {d_key}"):
+                            del current_qc_db[selected_file][modality][d_key]
+                            save_local_db(DB_QC_FILE, current_qc_db)
+                            st.success(f"Data {modality} tanggal {d_key} berhasil dihapus!")
+                            st.rerun()
+            else:
+                st.info("Belum ada data lokal QC tersimpan untuk bulan ini.")
+        else:
+            current_suhu_db = load_local_db(DB_SUHU_FILE)
+            if selected_file in current_suhu_db:
+                st.write(f"Data suhu tersimpan untuk file **{selected_file}**:")
+                for room, entries in current_suhu_db[selected_file].items():
+                    for idx, entry in enumerate(entries):
+                        if st.button(f"Hapus Suhu {room} - Tgl {entry['tanggal']} ({entry['dinas']})"):
+                            current_suhu_db[selected_file][room].pop(idx)
+                            save_local_db(DB_SUHU_FILE, current_suhu_db)
+                            st.success("Data suhu berhasil dihapus!")
+                            st.rerun()
+            else:
+                st.info("Belum ada data lokal Suhu tersimpan untuk bulan ini.")
