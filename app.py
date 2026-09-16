@@ -164,13 +164,14 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     """
     return html
 
-# --- PHASE 2: FULL QC FORM BUILDER WITH AUTO-CHECKLIST & HR FIX ---
+# --- PHASE 2: ROBUST QC FORM BUILDER WITH PARAMETER RECOVERY & ABSOLUTE BOTTOM NAMA PEKERJA ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
     modality_title = sheet_name.replace("QC ", "")
     
+    # 1. Pre-detect name row values across the entire sheet
     name_row_vals = None
     for idx, row in df.iterrows():
         row_str = str(row.values)
@@ -203,11 +204,11 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
         
-        is_category = (row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO" and "NAMA PEKERJA RADIASI" not in row_vals[0])
+        is_category = (row_vals[1] == "" and row_vals[4] == "" and row_vals[2] == "" and row_vals[5] == "" and row_vals[0] != "" and row_vals[0] != "NO" and "NAMA PEKERJA RADIASI" not in row_vals[0])
         is_header = (row_vals[0] == "NO")
         is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
         
-        if idx >= 44 or "Disiapkan" in str(row.values) or "Mengetahui" in str(row.values):
+        if idx >= 45 or "Disiapkan" in str(row.values) or "Mengetahui" in str(row.values):
             continue
             
         if is_header:
@@ -219,40 +220,52 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
                 table_html += f"<td style='border: 1px solid black; padding: 6px; text-align: center;' width='40px'>{d}</td>"
             table_html += "</tr>"
         elif is_category:
-            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='36' style='border: 1px solid black; padding: 8px; color: #000;'>{row_vals[0]}</td></tr>"
+            category_text = row_vals[0] if row_vals[0] != "" else row_vals[1]
+            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='36' style='border: 1px solid black; padding: 8px; color: #000;'>{category_text}</td></tr>"
         elif is_names:
-            table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
-            table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
+            # We will render NAMA PEKERJA RADIASI at the very end of our table loop to ensure it's always at the bottom
+            continue
+        else:
+            if row_vals[0] == "" and row_vals[1] == "" and row_vals[2] == "" and row_vals[4] == "" and row_vals[5] == "":
+                continue
+                
+            # Robust text extraction for Activity (Kegiatan) & Parameter
+            kegiatan = row_vals[1] if row_vals[1] != "" else (row_vals[2] if row_vals[2] != "" else row_vals[3])
+            parameter = row_vals[4] if row_vals[4] != "" else (row_vals[5] if row_vals[5] != "" else (row_vals[6] if row_vals[6] != "" else ""))
+            
+            table_html += "<tr style='height: 30px;'>"
+            table_html += f"<td style='border: 1px solid black; padding: 5px; text-align: center;' width='45px'>{row_vals[0]}</td>"
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{kegiatan}</td>"
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{parameter}</td>"
             
             for day_idx in range(1, 32):
                 val = ""
-                if name_row_vals:
-                    if (day_idx + 5) < len(name_row_vals) and name_row_vals[day_idx + 5].strip() != "":
-                        val = name_row_vals[day_idx + 5].strip()
-                    elif (day_idx + 6) < len(name_row_vals) and name_row_vals[day_idx + 6].strip() != "":
-                        val = name_row_vals[day_idx + 6].strip()
-                
-                # Replace #REF! or empty values with HR
-                if not val or "#REF!" in val:
-                    val = "HR"
-                table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
-            table_html += "</tr>"
-        else:
-            if row_vals[0] == "" and row_vals[1] == "" and row_vals[4] == "":
-                continue
-            table_html += "<tr style='height: 30px;'>"
-            table_html += f"<td style='border: 1px solid black; padding: 5px; text-align: center;' width='45px'>{row_vals[0]}</td>"
-            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{row_vals[1] if row_vals[1] != '' else row_vals[2]}</td>"
-            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{row_vals[4] if row_vals[4] != '' else row_vals[5]}</td>"
-            
-            for day_idx in range(1, 32):
-                val = row_vals[day_idx + 5] if (day_idx + 5) < len(row_vals) else ""
+                # Try locating value across offset indices
+                for offset in [5, 6, 7, 8]:
+                    if (day_idx + offset) < len(row_vals) and row_vals[day_idx + offset].strip() != "":
+                        val = row_vals[day_idx + offset].strip()
+                        break
                 # Auto-checklist blank cells with '✓'
-                if not val or val.strip() == "" or "#REF!" in val:
+                if not val or val == "" or "#REF!" in val:
                     val = "✓"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             
+    # --- RENDER NAMA PEKERJA RADIASI ROW AT THE ABSOLUTE BOTTOM ---
+    table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
+    table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
+    for day_idx in range(1, 32):
+        val = ""
+        if name_row_vals:
+            for offset in [5, 6, 7, 8]:
+                if (day_idx + offset) < len(name_row_vals) and name_row_vals[day_idx + offset].strip() != "" and name_row_vals[day_idx + offset] != "NAMA PEKERJA RADIASI":
+                    val = name_row_vals[day_idx + offset].strip()
+                    break
+        if not val or "#REF!" in val:
+            val = "HR"
+        table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
+    table_html += "</tr>"
+
     table_html += "</table>"
     html += table_html
     
