@@ -73,8 +73,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             BULAN : {bulan_name} 2026
         </div>
         
-        <div class="table-scroll-wrapper">
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1400px;'>
+        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px;'>
     """
 
     html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>SUHU</th>"
@@ -154,13 +153,12 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     
     html += f"""
         </table>
-        </div>
         <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
 
-# --- PHASE 2: SCROLLABLE SPACIOUS QC FORM BUILDER WITH PROPER NAME ROW ---
+# --- PHASE 2: UNIFIED SCROLL QC FORM BUILDER WITH CENTERED SIGNATURES ---
 def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -182,8 +180,6 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             MODALITAS : {modality_title}<br>
             BULAN : {bulan_name} 2026
         </div>
-        
-        <div class="table-scroll-wrapper">
     """
     
     table_html = "<table class='qc-table'>"
@@ -214,7 +210,6 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
         elif is_names:
             table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
             table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
-            # Row 42 stores days 1 to 31 starting from index 6 to 36
             for day_idx in range(1, 32):
                 val = row_vals[day_idx + 5] if (day_idx + 5) < len(row_vals) else ""
                 table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
@@ -230,7 +225,7 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             
-    table_html += "</table></div>"
+    table_html += "</table>"
     html += table_html
     
     sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<br><br>"
@@ -238,7 +233,7 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
     sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<br><br>"
     
     html += f"""
-    <div style="display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-start; min-width: 1400px;">
+    <div style="display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-start; width: 100%;">
         <div style="border: 1px solid black; width: 300px; font-size: 10px;">
             <div style="background-color: #d9d9d9; padding: 6px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
             <div style="padding: 8px; line-height: 1.4;">
@@ -301,31 +296,20 @@ else:
                 color: black;
                 font-family: 'Lexend', sans-serif;
                 margin: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
+                overflow-x: auto;
             }
             .page-container {
-                width: 100%;
-                max-width: 1400px;
+                width: 1450px;
                 background: white;
                 padding: 20px;
                 box-sizing: border-box;
-                margin: auto;
-            }
-            .table-scroll-wrapper {
-                width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                margin-bottom: 10px;
+                margin: 0 auto;
             }
             .qc-table {
                 width: 100%;
                 border-collapse: collapse;
                 font-size: 10px;
                 table-layout: fixed;
-                min-width: 1400px;
             }
             .qc-table td {
                 border: 1px solid black;
@@ -334,9 +318,8 @@ else:
             @media print {
                 .no-print { display: none !important; }
                 @page { size: landscape; margin: 0; }
-                body { padding: 10mm; display: block; }
-                .page-container { margin: 0 auto; width: 100%; max-width: none; }
-                .table-scroll-wrapper { overflow: visible !important; }
+                body { padding: 10mm; overflow: visible !important; }
+                .page-container { margin: 0 auto; width: 100%; }
                 .page-break { page-break-after: always; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
@@ -350,7 +333,7 @@ else:
                 font-size: 14px;
                 border-radius: 5px;
                 cursor: pointer;
-                margin-bottom: 20px;
+                margin: 15px 0 15px 20px;
             }
             .print-btn:hover { background-color: #004080; }
             .trademark {
