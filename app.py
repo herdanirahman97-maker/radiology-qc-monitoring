@@ -8,19 +8,16 @@ import math
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
 
 def get_image_base64(base_name):
-    # Check for common extensions and also no extension
     possible_names = [f"{base_name}.png", f"{base_name}.jpg", f"{base_name}.jpeg", base_name]
-    
     for file_name in possible_names:
         if os.path.exists(file_name):
             with open(file_name, "rb") as img_file:
-                # Detect mime type based on extension, default to jpeg if no extension
                 mime_type = "image/png" if file_name.endswith(".png") else "image/jpeg"
                 b64_str = base64.b64encode(img_file.read()).decode()
                 return f"data:{mime_type};base64,{b64_str}"
     return ""
 
-LOGO_PATH = "logo" # Automatically finds logo.png, logo.jpg, or logo
+LOGO_PATH = "logo"
 SIG1_PATH = "sig1"
 SIG2_PATH = "sig2"
 SIG3_PATH = "sig3"
@@ -41,7 +38,8 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
                 shift = str(row['Jadwal Dinas']).strip().upper()
                 suhu = float(row[suhu_col]) if pd.notna(row[suhu_col]) else None
                 kel = float(row[kel_col]) if pd.notna(row[kel_col]) else None
-                nama = str(row['Nama Petugas']).strip() if pd.notna(row['Nama Petugas']) and str(row['Nama Petugas']).strip() != "" else "HR"
+                raw_nama = str(row['Nama Petugas']).strip() if pd.notna(row['Nama Petugas']) else "HR"
+                nama = "HR" if "#REF!" in raw_nama or raw_nama == "" else raw_nama
                 data_dict[(day, shift)] = {'suhu': suhu, 'kel': kel, 'nama': nama}
             except:
                 continue
@@ -55,7 +53,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
                     data_dict[(d, s)]['suhu'] = 22.0
                 if data_dict[(d, s)]['kel'] is None or math.isnan(data_dict[(d, s)]['kel']):
                     data_dict[(d, s)]['kel'] = 55.0
-                if data_dict[(d, s)]['nama'] is None or data_dict[(d, s)]['nama'] == "":
+                if data_dict[(d, s)]['nama'] is None or data_dict[(d, s)]['nama'] == "" or "#REF!" in str(data_dict[(d, s)]['nama']):
                     data_dict[(d, s)]['nama'] = 'HR'
 
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
@@ -154,7 +152,8 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px;'>NAMA</td>"
     for day in range(1, 32):
         for shift in ['P', 'S', 'M']:
-            nama = data_dict.get((day, shift), {}).get('nama', 'HR')
+            raw_nama = data_dict.get((day, shift), {}).get('nama', 'HR')
+            nama = "HR" if "#REF!" in str(raw_nama) or str(raw_nama).strip() == "" else raw_nama
             html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
     html += "</tr>"
     
@@ -165,7 +164,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     """
     return html
 
-# --- PHASE 2: FULL QC FORM BUILDER WITH DYNAMIC WORKER NAMES & HR FALLBACK ---
+# --- PHASE 2: FULL QC FORM BUILDER WITH AUTO-CHECKLIST & HR FIX ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -232,7 +231,9 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
                         val = name_row_vals[day_idx + 5].strip()
                     elif (day_idx + 6) < len(name_row_vals) and name_row_vals[day_idx + 6].strip() != "":
                         val = name_row_vals[day_idx + 6].strip()
-                if not val:
+                
+                # Replace #REF! or empty values with HR
+                if not val or "#REF!" in val:
                     val = "HR"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
@@ -246,6 +247,9 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             
             for day_idx in range(1, 32):
                 val = row_vals[day_idx + 5] if (day_idx + 5) < len(row_vals) else ""
+                # Auto-checklist blank cells with '✓'
+                if not val or val.strip() == "" or "#REF!" in val:
+                    val = "✓"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             
