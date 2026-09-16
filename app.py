@@ -158,7 +158,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
     return html
 
-# --- PHASE 2: QC FORM TEMPLATE BUILDER WITH SIGNATURES ---
+# --- PHASE 2: CLEAN PROPORTIONAL QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -190,53 +190,65 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
         
-        is_category = row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO"
-        is_header = row_vals[0] == "NO"
-        is_names = "NAMA PEKERJA RADIASI" in str(row.values)
+        # Check specific row types
+        is_category = (row_vals[1] == "" and row_vals[4] == "" and row_vals[0] != "" and row_vals[0] != "NO")
+        is_header = (row_vals[0] == "NO")
+        is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
         
-        # Skip the bottom excel signature rows because we will render a clean professional footer
         if idx >= 44:
             continue
             
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
-            for val in row_vals[:37]:
-                table_html += f"<td style='border: 1px solid black; padding: 4px;'>{val}</td>"
+            # Keep columns 0 (NO), 1 (KEGIATAN), 4 (PARAMETER), and 6 to 36 (Days 1-31)
+            # Skip empty columns 2, 3, 5 to avoid double borders/spacing issues
+            cols_to_use = [0, 1, 4] + list(range(6, min(37, len(row_vals))))
+            for c in cols_to_use:
+                val = row_vals[c] if c < len(row_vals) else ""
+                colspan = "3" if c == 1 or c == 4 else "1"
+                table_html += f"<td colspan='{colspan}' style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         elif is_category:
-            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='37' style='border: 1px solid black; padding: 5px; color: #000;'>{row_vals[0]}</td></tr>"
+            table_html += f"<tr style='background-color: #cfe2f3; font-weight: bold; text-align: left;'><td colspan='35' style='border: 1px solid black; padding: 6px; color: #000;'>{row_vals[0]}</td></tr>"
         elif is_names:
             table_html += "<tr style='background-color: #C9DAF8; font-weight: bold;'>"
-            for val in row_vals[:37]:
-                table_html += f"<td style='border: 1px solid black; padding: 3px; font-size: 9px;'>{val}</td>"
+            table_html += "<td colspan='3' style='border: 1px solid black; padding: 4px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
+            for c in range(6, min(37, len(row_vals))):
+                val = row_vals[c] if c < len(row_vals) else ""
+                table_html += f"<td style='border: 1px solid black; padding: 3px; font-size: 8px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         else:
             table_html += "<tr>"
-            for col_idx, val in enumerate(row_vals[:37]):
-                align = "left" if col_idx in [1, 2, 4] else "center"
-                table_html += f"<td style='border: 1px solid black; padding: 3px; text-align: {align};'>{val}</td>"
+            # NO
+            table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;' width='35px'>{row_vals[0]}</td>"
+            # KEGIATAN (span 2)
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 4px; text-align: left;' width='180px'>{row_vals[1] if row_vals[1] != '' else row_vals[2]}</td>"
+            # PARAMETER (span 2)
+            table_html += f"<td colspan='2' style='border: 1px solid black; padding: 4px; text-align: left;' width='220px'>{row_vals[4] if row_vals[4] != '' else row_vals[5]}</td>"
+            
+            # Days 1 to 31
+            for c in range(6, min(37, len(row_vals))):
+                val = row_vals[c] if c < len(row_vals) else ""
+                table_html += f"<td style='border: 1px solid black; padding: 3px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             
     table_html += "</table>"
     html += table_html
     
-    # --- PROFESSIONAL FOOTER WITH LEGEND & SIGNATURES ---
     sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<br><br>"
     sig2_img = f"<img src='data:image/png;base64,{sig2_b64}' width='110'>" if sig2_b64 else "<br><br>"
     sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<br><br>"
     
     html += f"""
-    <div style="display: flex; justify-content: space-between; margin-top: 20px; align-items: flex-start;">
-        <!-- Keterangan Box -->
+    <div style="display: flex; justify-content: space-between; margin-top: 25px; align-items: flex-start;">
         <div style="border: 1px solid black; width: 300px; font-size: 10px;">
-            <div style="background-color: #d9d9d9; padding: 5px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
-            <div style="padding: 6px;">
+            <div style="background-color: #d9d9d9; padding: 6px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
+            <div style="padding: 8px; line-height: 1.4;">
                 ✓ : Memenuhi / Lulus Uji / Lengkap<br>
                 X : Tidak Memenuhi / Tidak Lulus Uji / Tidak Lengkap
             </div>
         </div>
         
-        <!-- Signatures Table -->
         <table style="border-collapse: collapse; width: 550px; font-size: 10px; text-align: center;">
             <tr>
                 <td style="border: 1px solid black; background-color: #d9d9d9; font-weight: bold; padding: 5px;" width="33%">Disiapkan Oleh</td>
@@ -263,7 +275,6 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
     </div>
     """
     return html
-
 
 # --- MAIN APP LAYOUT ---
 if not all_files:
@@ -309,10 +320,12 @@ else:
                 width: 100%;
                 border-collapse: collapse;
                 font-size: 9px;
+                table-layout: fixed;
             }
             .qc-table td {
                 border: 1px solid black;
                 padding: 3px;
+                overflow: hidden;
             }
             @media print {
                 .no-print { display: none !important; }
