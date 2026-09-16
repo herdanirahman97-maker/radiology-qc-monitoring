@@ -73,20 +73,20 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
 
     # --- SUHU SECTION ---
-    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 6px;'>SUHU</th>"
-    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 6px;'>Target Temperatur (18 - 23)°C</th></tr>"
+    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 7px;'>SUHU</th>"
+    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 7px;'>Target Temperatur (18 - 23)°C</th></tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; width: 40px; padding: 5px;'>Tgl</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; width: 40px; padding: 6px;'>Tgl</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 5px;'>{day}</td>"
+        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 6px;'>{day}</td>"
     html += "</tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>Dinas</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 5px;'>Dinas</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
         for shift in ['P', 'S', 'M']:
-            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 4px;'>{shift}</td>"
+            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 5px;'>{shift}</td>"
     html += "</tr>"
     
     # Suhu Rows (30 down to 15)
@@ -96,7 +96,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         label_bg = "#F4CCCC" if is_out else "#FFFFFF"
         label_color = "red" if is_out else "black"
         
-        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 4px;'>{temp}</td>"
+        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 5px;'>{temp}</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
@@ -104,25 +104,25 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 dot = ""
                 if val is not None and round(val) == temp:
                     dot_color = "red" if val < 18 or val > 23 else "black"
-                    dot = f"<span style='color: {dot_color}; font-size: 15px; line-height: 1;'>●</span>"
-                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 22px;'>{dot}</td>"
+                    dot = f"<span style='color: {dot_color}; font-size: 16px; line-height: 1;'>●</span>"
+                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 26px;'>{dot}</td>"
         html += "</tr>"
         
     # --- KELEMBAPAN SECTION ---
-    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 6px;'>KELEMBAPAN</th>"
-    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 6px;'>Target kelembapan ( 40 - 60 % )</th></tr>"
+    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 7px;'>KELEMBAPAN</th>"
+    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 7px;'>Target kelembapan ( 40 - 60 % )</th></tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 5px;'>Tgl</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 6px;'>Tgl</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 5px;'>{day}</td>"
+        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 6px;'>{day}</td>"
     html += "</tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>Dinas</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 5px;'>Dinas</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
         for shift in ['P', 'S', 'M']:
-            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 4px;'>{shift}</td>"
+            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 5px;'>{shift}</td>"
     html += "</tr>"
     
     # Kelembapan Rows (65 down to 30, step -5)
@@ -132,7 +132,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         label_bg = "#F4CCCC" if is_out else "#FFFFFF"
         label_color = "red" if is_out else "black"
         
-        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 4px;'>{hum}</td>"
+        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 5px;'>{hum}</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
@@ -140,16 +140,16 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 dot = ""
                 if val is not None and round(val / 5) * 5 == hum:
                     dot_color = "red" if val < 40 or val > 60 else "black"
-                    dot = f"<span style='color: {dot_color}; font-size: 15px; line-height: 1;'>●</span>"
-                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 22px;'>{dot}</td>"
+                    dot = f"<span style='color: {dot_color}; font-size: 16px; line-height: 1;'>●</span>"
+                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 26px;'>{dot}</td>"
         html += "</tr>"
 
     # --- NAMA PETUGAS SECTION ---
-    html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px; padding: 5px;'>NAMA</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px; padding: 6px;'>NAMA</td>"
     for day in range(1, 32):
         for shift in ['P', 'S', 'M']:
             nama = data_dict.get((day, shift), {}).get('nama', '')
-            html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700; padding: 4px; height: 24px;'>{nama}</td>"
+            html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700; padding: 5px; height: 28px;'>{nama}</td>"
     html += "</tr>"
     
     html += f"""
@@ -190,16 +190,16 @@ else:
             }
             .page-container {
                 width: 100%;
-                max-width: 1400px;
+                max-width: 1450px;
                 background: white;
-                padding: 15px 25px;
+                padding: 20px 30px;
                 box-sizing: border-box;
-                margin-bottom: 50px;
+                margin-bottom: 60px;
             }
             @media print {
                 .no-print { display: none !important; }
                 @page { size: landscape; margin: 0; }
-                body { padding: 8mm; }
+                body { padding: 6mm; }
                 .page-container { margin-bottom: 0; padding: 0; width: 100%; max-width: none; }
                 .page-break { page-break-after: always; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -219,9 +219,9 @@ else:
             }
             .print-btn:hover { background-color: #004080; }
             .trademark {
-                text-align: right; 
+                text-align: left; 
                 font-size: 9px; 
-                color: #888888; 
+                color: #777777; 
                 margin-top: 8px; 
                 font-weight: 400; 
                 font-style: italic;
@@ -246,7 +246,7 @@ else:
             df = pd.read_excel(xls, sheet_name=selected_sheet)
             room_html = build_room_html(selected_sheet, selected_file, df, logo_b64)
             final_html = master_html_start + room_html + master_html_end
-            components.html(final_html, height=950, scrolling=True)
+            components.html(final_html, height=1050, scrolling=True)
             
     elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
         st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di atas.")
@@ -258,4 +258,4 @@ else:
                 all_rooms_html += "<div class='page-break'></div>"
                 
         final_html = master_html_start + all_rooms_html + master_html_end
-        components.html(final_html, height=950, scrolling=True)
+        components.html(final_html, height=1050, scrolling=True)
