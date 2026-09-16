@@ -164,12 +164,24 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     """
     return html
 
-# --- PHASE 2: UNIFIED DYNAMIC QC FORM BUILDER ---
+# --- PHASE 2: DYNAMIC COLUMN MAPPING QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     modality_title = sheet_name.replace("QC ", "")
     
+    # 1. Dynamically find the parameter column index from header row (index 8)
+    param_col_idx = 5  # default fallback
+    for r_idx in [8, 7, 6]:
+        if r_idx < len(df):
+            row_h = [str(x).upper() for x in df.iloc[r_idx].values]
+            for c_idx, val in enumerate(row_h):
+                if "PARAMETER" in val:
+                    param_col_idx = c_idx
+                    break
+            if param_col_idx != 5:
+                break
+
     name_row_vals = None
     for idx, row in df.iterrows():
         row_str = str(row.values)
@@ -197,7 +209,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     table_html = "<table class='qc-table'>"
     
     for idx, row in df.iterrows():
-        if idx < 7:
+        if idx < 8:
             continue
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
@@ -209,7 +221,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
         is_header = ("NO" in row_vals[0].upper() or "KEGIATAN" in row_text_joined)
         is_names = ("NAMA PEKERJA RADIASI" in row_text_joined)
         
-        non_empty_texts = [v.strip() for i, v in enumerate(row_vals[:5]) if v.strip() != "" and v.strip() != "NO"]
+        non_empty_texts = [v.strip() for i, v in enumerate(row_vals[:param_col_idx]) if v.strip() != "" and v.strip() != "NO"]
         is_category = (len(non_empty_texts) == 1 and not is_names and not is_header and row_vals[0] != "")
         
         if is_header:
@@ -226,18 +238,18 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
         elif is_names:
             continue
         else:
-            if row_vals[0] == "" and all(v == "" for v in row_vals[1:5]):
+            if row_vals[0] == "" and all(v == "" for v in row_vals[1:param_col_idx]):
                 continue
                 
-            # Extract Kegiatan and Parameter dynamically by collecting text cells that aren't checklist symbols
-            text_cells = [v.strip() for v in row_vals[1:5] if v.strip() != "" and v.strip() not in ["✓", "X"] and not v.strip().isdigit()]
+            # Extract Kegiatan (col 1) and Parameter (dynamically at param_col_idx)
+            kegiatan = row_vals[1].strip() if len(row_vals) > 1 else ""
+            parameter = row_vals[param_col_idx].strip() if param_col_idx < len(row_vals) else ""
             
-            kegiatan = text_cells[0] if len(text_cells) > 0 else (row_vals[1].strip() if len(row_vals) > 1 else "")
-            parameter = text_cells[1] if len(text_cells) > 1 else ""
-            if not parameter and len(row_vals) > 2:
-                for c_idx in [2, 3, 4]:
-                    if c_idx < len(row_vals) and row_vals[c_idx].strip() not in ["✓", "X", ""] and not row_vals[c_idx].strip().isdigit():
-                        parameter = row_vals[c_idx].strip()
+            # Fallback if parameter is empty
+            if not parameter:
+                for c in range(2, param_col_idx + 1):
+                    if c < len(row_vals) and row_vals[c].strip() != "" and row_vals[c].strip() not in ["✓", "X"]:
+                        parameter = row_vals[c].strip()
                         break
             
             table_html += "<tr style='height: 30px;'>"
@@ -245,24 +257,14 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='200px'>{kegiatan}</td>"
             table_html += f"<td colspan='2' style='border: 1px solid black; padding: 5px; text-align: left;' width='250px'>{parameter}</td>"
             
+            # Days 1 to 31 checklist values (starting right after parameter column)
             for day_idx in range(1, 32):
                 val = ""
-                # Scan columns after parameter for checklist symbols
-                for col_idx in range(2, len(row_vals)):
-                    cell_val = row_vals[col_idx].strip()
-                    if cell_val in ["✓", "X"]:
-                        # Match day position sequentially or take the appropriate column
-                        pass
-                
-                # Direct offset search for days 1 to 31
-                for offset in [2, 3, 4, 5, 6]:
-                    target_col = day_idx + offset
-                    if target_col < len(row_vals):
-                        cand = row_vals[target_col].strip()
-                        if cand in ["✓", "X"] or (len(cand) <= 2 and cand != ""):
-                            val = cand
-                            break
-                            
+                target_col = param_col_idx + day_idx
+                if target_col < len(row_vals):
+                    cand = row_vals[target_col].strip()
+                    if cand in ["✓", "X"] or (len(cand) <= 2 and cand != ""):
+                        val = cand
                 if not val or val == "" or "#REF!" in val:
                     val = "✓"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
@@ -274,13 +276,11 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     for day_idx in range(1, 32):
         val = ""
         if name_row_vals:
-            for offset in [2, 3, 4, 5, 6]:
-                target_col = day_idx + offset
-                if target_col < len(name_row_vals):
-                    cand = name_row_vals[target_col].strip()
-                    if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
-                        val = cand
-                        break
+            target_col = param_col_idx + day_idx
+            if target_col < len(name_row_vals):
+                cand = name_row_vals[target_col].strip()
+                if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
+                    val = cand
         if not val or "#REF!" in val:
             val = "HR"
         table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
