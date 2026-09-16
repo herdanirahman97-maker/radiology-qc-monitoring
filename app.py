@@ -367,13 +367,12 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- MAIN APP LAYOUT (3 TOMBOL UTAMA YANG BERSIH & TERPISAH) ---
+# --- MAIN APP LAYOUT (3 TOMBOL UTAMA) ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
     st.sidebar.header("🧭 Navigasi Utama")
     
-    # 3 Tombol Utama yang Berdiri Sendiri
     main_menu = st.sidebar.radio("Pilih Menu:", [
         "📂 Review Backdate", 
         "📝 Input Data", 
@@ -486,19 +485,18 @@ else:
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
     # ==========================================
-    # 2. MENU: INPUT DATA
+    # 2. MENU: INPUT DATA (STEP-BY-STEP ALUR BARU)
     # ==========================================
     elif main_menu == "📝 Input Data":
-        st.header("📝 Form Pengisian Data Harian (Mandiri)")
-        st.write("Silakan isi formulir harian berikut. Data akan langsung tersimpan dan memperbarui preview secara real-time.")
+        st.header("📝 Form Pengisian Data Harian (Berjenjang / Step-by-Step)")
+        st.write("Semua alat **wajib** mengisi Suhu & Kelembapan terlebih dahulu. Selanjutnya, petugas dapat melanjutkan ke pengisian QC (khusus modalitas).")
         
         selected_file = st.selectbox("Pilih Bulan Target Arsip:", all_files)
         xls = pd.ExcelFile(selected_file) if selected_file else None
         
-        form_type = st.radio("Pilih Jenis Formulir:", ["🌡️ Monitoring Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
-        
-        with st.form("standalone_input_form"):
-            st.subheader("1. Identitas & Waktu")
+        with st.form("step_by_step_input_form"):
+            # --- IDENTITAS & WAKTU (UMUM) ---
+            st.subheader("📌 Identitas & Waktu Pengisian")
             col_a, col_b, col_c = st.columns(3)
             with col_a:
                 petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
@@ -507,25 +505,32 @@ else:
             with col_c:
                 dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
 
-            if form_type == "🌡️ Monitoring Suhu & Kelembapan":
-                st.subheader("2. Parameter Suhu & Kelembapan")
-                raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
-                target_room_input = st.selectbox("Pilih Ruangan", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
-                
-                col_s, col_k = st.columns(2)
-                with col_s:
-                    suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
-                with col_k:
-                    kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
-                
-                action_plan = st.text_area("Keterangan / Tindakan (opsional)")
-                
-            else:
-                st.subheader("2. Checklist Parameter QC Sesuai Modalitas")
+            st.markdown("---")
+            
+            # --- STEP 1: WAJIB SUHU & KELEMBAPAN UNTUK SEMUA ALAT ---
+            st.subheader("Step 1: 🌡️ Monitoring Suhu & Kelembapan (Wajib Semua Ruangan)")
+            raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
+            target_room_input = st.selectbox("Pilih Ruangan / Alat", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
+            
+            col_s, col_k = st.columns(2)
+            with col_s:
+                suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
+            with col_k:
+                kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
+
+            st.markdown("---")
+            
+            # --- STEP 2: PILIHAN QC (HANYA BERLAKU UNTUK MODALITAS) ---
+            st.subheader("Step 2: 📋 Daily Quality Control / QC (Khusus Modalitas)")
+            include_qc = st.checkbox("Lakukan pengisian checklist QC untuk modalitas ini?", value=False)
+            
+            target_qc_input = None
+            qc_items_list = []
+            
+            if include_qc:
                 qc_sheets = [s for s in xls.sheet_names if "QC" in s] if xls else []
                 target_qc_input = st.selectbox("Pilih Modalitas QC", qc_sheets)
                 
-                qc_items_list = []
                 if xls and target_qc_input:
                     df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_input, header=None)
                     param_idx = 5
@@ -560,7 +565,8 @@ else:
                                             break
                                 qc_items_list.append((curr_cat, r_vals[0], keg, param))
 
-                qc_responses = {}
+            qc_responses = {}
+            if include_qc:
                 active_category = ""
                 row_idx_tracker = 0
                 for cat, no, keg, param in qc_items_list:
@@ -572,31 +578,31 @@ else:
                     qc_responses[row_idx_tracker] = st.radio(
                         label, 
                         ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
-                        key=f"input_qc_{target_qc_input}_{row_idx_tracker}"
+                        key=f"step_qc_{target_qc_input}_{row_idx_tracker}"
                     )
                     row_idx_tracker += 1
 
-            submitted_data = st.form_submit_button("🚀 Submit Data Harian")
+            submitted_data = st.form_submit_button("🚀 Submit Semua Data Harian")
             
             if submitted_data:
-                if form_type == "🌡️ Monitoring Suhu & Kelembapan":
-                    local_suhu = load_local_db(DB_SUHU_FILE)
-                    if selected_file not in local_suhu:
-                        local_suhu[selected_file] = {}
-                    if target_room_input not in local_suhu[selected_file]:
-                        local_suhu[selected_file][target_room_input] = []
-                        
-                    local_suhu[selected_file][target_room_input].append({
-                        "tanggal": tanggal_input,
-                        "dinas": dinas_input,
-                        "petugas": petugas_input,
-                        "suhu": suhu_input,
-                        "kelembapan": kel_input
-                    })
-                    save_local_db(DB_SUHU_FILE, local_suhu)
-                    st.success("✅ Data Suhu & Kelembapan berhasil disimpan secara real-time!")
-                    st.balloons()
-                else:
+                # 1. Simpan Data Suhu & Kelembapan (Wajib)
+                local_suhu = load_local_db(DB_SUHU_FILE)
+                if selected_file not in local_suhu:
+                    local_suhu[selected_file] = {}
+                if target_room_input not in local_suhu[selected_file]:
+                    local_suhu[selected_file][target_room_input] = []
+                    
+                local_suhu[selected_file][target_room_input].append({
+                    "tanggal": tanggal_input,
+                    "dinas": dinas_input,
+                    "petugas": petugas_input,
+                    "suhu": suhu_input,
+                    "kelembapan": kel_input
+                })
+                save_local_db(DB_SUHU_FILE, local_suhu)
+                
+                # 2. Simpan Data QC (Jika dicentang)
+                if include_qc and target_qc_input:
                     local_qc = load_local_db(DB_QC_FILE)
                     if selected_file not in local_qc:
                         local_qc[selected_file] = {}
@@ -613,8 +619,9 @@ else:
                         local_qc[selected_file][target_qc_input][day_key][str(r_idx)] = {"status": symbol}
                         
                     save_local_db(DB_QC_FILE, local_qc)
-                    st.success("✅ Data Checklist QC berhasil disimpan secara real-time!")
-                    st.balloons()
+                    
+                st.success("✅ Data Suhu/Kelembapan & QC berhasil disimpan secara real-time!")
+                st.balloons()
 
     # ==========================================
     # 3. MENU: REVISI / HAPUS
