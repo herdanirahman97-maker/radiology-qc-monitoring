@@ -465,7 +465,7 @@ else:
         st.header("📝 Form Pengisian Digital (Pengganti Google Forms)")
         st.write(f"Database aktif: **{selected_file}**")
         
-        form_type = st.radio("Pilih Formulir:", ["Monitoring Suhu & Kelembapan", "Form Digital Daily QC (Section 2)"])
+        form_type = st.radio("Pilih Formulir:", ["Monitoring Suhu & Kelembapan", "Form Digital Daily QC (Item-by-Item Checklist)"])
         
         with st.form("gform_replacement_form"):
             st.subheader("Informasi Petugas & Waktu")
@@ -477,7 +477,7 @@ else:
             with col3:
                 dinas = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
                 
-            st.info("💡 **Ket**: Form QC hanya diisi oleh petugas pada **dinas Pagi (P)**. Petugas Siang dan Malam dapat langsung submit form monitoring suhu dan kelembapan saja.")
+            st.info("💡 **Ket**: Form QC diisi oleh petugas pada **dinas Pagi (P)**. Petugas Siang dan Malam dapat mengisi form monitoring suhu dan kelembapan.")
 
             if form_type == "Monitoring Suhu & Kelembapan":
                 st.subheader("Parameter Suhu & Kelembapan Ruangan")
@@ -493,13 +493,29 @@ else:
                 keterangan = st.text_area("Keterangan / Action Plan (opsional)", placeholder="Contoh : Melapor ke Maintenance jika suhu terlalu tinggi/rendah")
                 
             else:
-                st.subheader("Checklist Daily Quality Control (QC)")
+                st.subheader("Checklist Item-by-Item Daily Quality Control (QC)")
                 qc_sheets = [s for s in xls.sheet_names if "QC" in s]
                 target_qc_sheet = st.selectbox("Pilih Modality QC", qc_sheets)
-                st.write("Silakan berikan status kelayakan pada pengecekan harian:")
                 
-                qc_status = st.radio("Status Umum Pengecekan Hari Ini", ["Berfungsi / Lengkap / Dalam Kondisi Baik (✓)", "Tidak Berfungsi / Tidak Lengkap / Rusak (X)"])
-                qc_notes = st.text_area("Catatan Kendala (jika ada alat yang rusak/bermasalah)")
+                # Load exact items from selected QC sheet
+                df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_sheet, header=None)
+                qc_items = []
+                for idx, row in df_qc_sheet.iterrows():
+                    if idx >= 8:
+                        r_vals = [str(x) for x in row.values if pd.notna(x)]
+                        if len(r_vals) >= 2 and r_vals[0].isdigit():
+                            qc_items.append((r_vals[0], r_vals[1]))
+                
+                st.write(f"Silakan centang status kelayakan untuk setiap parameter pada **{target_qc_sheet}**:")
+                
+                qc_answers = {}
+                for no, kegiatan in qc_items:
+                    qc_answers[(no, kegiatan)] = st.radio(
+                        f"[{no}] {kegiatan}", 
+                        ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
+                        key=f"qc_{target_qc_sheet}_{no}"
+                    )
+                qc_notes = st.text_area("Catatan Kendala / Action Plan (jika ada yang rusak)")
 
             submit_btn = st.form_submit_button("🚀 Submit & Kembali ke Mode Review")
             
@@ -507,7 +523,6 @@ else:
                 try:
                     if form_type == "Monitoring Suhu & Kelembapan":
                         df_target = pd.read_excel(xls, sheet_name=target_room)
-                        # Append or update record in local Excel database
                         new_entry = {
                             'Tanggal Pengisian': tanggal,
                             'Jadwal Dinas': dinas,
@@ -523,7 +538,7 @@ else:
                         with pd.ExcelWriter(selected_file, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
                             df_qc_raw.to_excel(writer, sheet_name=target_qc_sheet, index=False, header=False)
                             
-                    st.success("✅ Data berhasil disimpan secara lokal ke file Excel! Google Forms & GSheets berhasil digantikan sepenuhnya.")
+                    st.success("✅ Data berhasil disimpan secara lokal ke file Excel! Silakan pilih menu Review di sidebar untuk melihat hasilnya.")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
