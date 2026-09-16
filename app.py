@@ -7,7 +7,6 @@ import math
 
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
 
-# Function to encode image for HTML
 def get_image_base64(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -16,11 +15,9 @@ def get_image_base64(image_path):
 
 LOGO_PATH = "logo.png"
 
-# Automatically find and sort all monthly Excel files
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
-# --- HELPER FUNCTION TO GENERATE 1 ROOM'S HTML TABLE ---
 def build_room_html(sheet_name, file_name, df, logo_base64):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
     kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
@@ -38,7 +35,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             except:
                 continue
 
-    # Auto-fill missing data (22°C, 55%, HR)
     for d in range(1, 32):
         for s in ['P', 'S', 'M']:
             if (d, s) not in data_dict:
@@ -58,13 +54,14 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     header_bg, header_fg, nama_bg = "#002B5B", "#FFFFFF", "#C9DAF8"
     
     html = f"""
-    <div>
-        <div style='display: flex; align-items: center; margin-bottom: 20px; color: black;'>
+    <div class="page-container">
+        <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 15px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h3 style='margin: 0; font-weight: 700;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
-                <h4 style='margin: 0; font-weight: 600;'>Departemen Radiologi Tahun 2026</h4>
+                <h1 style='margin: 0; font-weight: 700; font-size: 26px; letter-spacing: 0.5px;'>Form Digital Monitoring Suhu dan Kelembapan</h1>
+                <h3 style='margin: 6px 0 0 0; font-weight: 600; font-size: 16px; color: #333;'>Departemen Radiologi Tahun 2026</h3>
             </div>
+            <div style='flex: 0 0 150px;'></div>
         </div>
         
         <div style='font-weight: 700; font-size: 14px; margin-bottom: 10px; color: black;'>
@@ -155,14 +152,13 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
     html += "</tr>"
     
-    html += """
+    html += f"""
         </table>
-        <div class="trademark">© 2026 Herdani Rahman</div>
+        <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
 
-# --- MAIN APP LOGIC ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
@@ -173,10 +169,8 @@ else:
     raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
     
     view_mode = st.sidebar.radio("Mode Tampilan:", ["Tampilkan 1 Ruangan", "Cetak Semua Ruangan (1 Bulan)"])
-    
     logo_b64 = get_image_base64(LOGO_PATH)
     
-    # Master HTML wrapper with CSS to strip browser headers
     master_html_start = """
     <!DOCTYPE html>
     <html>
@@ -188,13 +182,26 @@ else:
                 background-color: white;
                 color: black;
                 font-family: 'Lexend', sans-serif;
-                padding: 20px;
                 margin: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+            }
+            .page-container {
+                width: 100%;
+                max-width: 1350px;
+                background: white;
+                padding: 20px;
+                box-sizing: border-box;
+                margin: auto;
             }
             @media print {
                 .no-print { display: none !important; }
-                @page { size: landscape; margin: 0; } /* MARGIN 0 REMOVES BROWSER WATERMARK/URL */
-                body { padding: 10mm; } /* Restores safe margin inside the page */
+                @page { size: landscape; margin: 0; }
+                body { padding: 10mm; display: block; }
+                .page-container { margin: 0 auto; width: 100%; max-width: none; }
                 .page-break { page-break-after: always; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
@@ -212,12 +219,13 @@ else:
             }
             .print-btn:hover { background-color: #004080; }
             .trademark {
-                text-align: right; 
+                text-align: left; 
                 font-size: 11px; 
-                color: #777777; 
-                margin-top: 8px; 
-                font-weight: 700; 
+                color: #888888; 
+                margin-top: 10px; 
+                font-weight: 400; 
                 font-style: italic;
+                letter-spacing: 0.3px;
             }
         </style>
     </head>
@@ -241,15 +249,11 @@ else:
             components.html(final_html, height=850, scrolling=True)
             
     elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
-        st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di bawah.")
+        st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di atas.")
         all_rooms_html = ""
-        
-        # Loop through all 11 sheets and stitch them together
         for i, sheet in enumerate(raw_data_sheets):
             df = pd.read_excel(xls, sheet_name=sheet)
             all_rooms_html += build_room_html(sheet, selected_file, df, logo_b64)
-            
-            # Add a page break after every sheet EXCEPT the very last one
             if i < len(raw_data_sheets) - 1:
                 all_rooms_html += "<div class='page-break'></div>"
                 
