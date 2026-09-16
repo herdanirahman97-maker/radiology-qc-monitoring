@@ -336,7 +336,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             <div style="background-color: #d9d9d9; padding: 6px; font-weight: bold; border-bottom: 1px solid black;">Keterangan :</div>
             <div style="padding: 8px; line-height: 1.4;">
                 ✓ : Memenuhi / Lulus Uji / Lengkap<br>
-                X : Tidak Memenuhi / Tidak Lulus Uji / Tidak Lengkap
+                X : Tidak Memenuhi / Tidak Lulus Uji / Lengkap
             </div>
         </div>
         
@@ -367,7 +367,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- MAIN APP LAYOUT (3 TOMBOL UTAMA) ---
+# --- MAIN APP LAYOUT ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
@@ -485,18 +485,30 @@ else:
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
     # ==========================================
-    # 2. MENU: INPUT DATA (STEP-BY-STEP ALUR BARU)
+    # 2. MENU: INPUT DATA (SINGLE MODALITY SELECTION & SYNCED STEPS)
     # ==========================================
     elif main_menu == "📝 Input Data":
-        st.header("📝 Form Pengisian Data Harian (Berjenjang / Step-by-Step)")
-        st.write("Semua alat **wajib** mengisi Suhu & Kelembapan terlebih dahulu. Selanjutnya, petugas dapat melanjutkan ke pengisian QC (khusus modalitas).")
+        st.header("📝 Form Pengisian Data Harian (Step-by-Step Terpadu)")
+        st.write("Pilih modalitas/ruangan **cukup sekali di awal**. Sistem akan otomatis membuka form Suhu & Kelembapan serta mencocokkan lembar QC untuk modalitas tersebut.")
         
         selected_file = st.selectbox("Pilih Bulan Target Arsip:", all_files)
         xls = pd.ExcelFile(selected_file) if selected_file else None
         
-        with st.form("step_by_step_input_form"):
-            # --- IDENTITAS & WAKTU (UMUM) ---
-            st.subheader("📌 Identitas & Waktu Pengisian")
+        # Ambil daftar ruangan suhu dan lembar QC yang ada di file Excel
+        suhu_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
+        qc_sheets = [s for s in xls.sheet_names if "QC" in s] if xls else []
+        
+        # Petakan nama ruangan suhu dengan lembar QC secara otomatis berdasarkan nama modalitasnya
+        room_to_qc = {}
+        for r_sheet in suhu_sheets:
+            clean_r = r_sheet.replace(" Oct", "").strip()
+            # Cari sheet QC yang mengandung nama ruangan atau mirip
+            matched_qc = next((q for q in qc_sheets if clean_r.lower() in q.lower() or q.lower().replace("qc ", "") in clean_r.lower()), qc_sheets[0] if qc_sheets else None)
+            room_to_qc[r_sheet] = matched_qc
+
+        with st.form("synced_step_input_form"):
+            # --- IDENTITAS & WAKTU ---
+            st.subheader("📌 1. Identitas & Waktu Pengisian")
             col_a, col_b, col_c = st.columns(3)
             with col_a:
                 petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
@@ -507,11 +519,22 @@ else:
 
             st.markdown("---")
             
-            # --- STEP 1: WAJIB SUHU & KELEMBAPAN UNTUK SEMUA ALAT ---
-            st.subheader("Step 1: 🌡️ Monitoring Suhu & Kelembapan (Wajib Semua Ruangan)")
-            raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
-            target_room_input = st.selectbox("Pilih Ruangan / Alat", raw_data_sheets, format_func=lambda x: str(x).replace(" Oct", "").strip())
+            # --- PILIHAN MODALITAS UTAMA (HANYA SEKALI) ---
+            st.subheader("📌 2. Pilih Modalitas / Ruangan Utama")
+            selected_room = st.selectbox(
+                "Modalitas / Ruangan:", 
+                suhu_sheets, 
+                format_func=lambda x: str(x).replace(" Oct", "").strip()
+            )
             
+            # Tentukan sheet QC yang otomatis sinkron dengan ruangan yang dipilih
+            auto_matched_qc = room_to_qc.get(selected_room)
+            modality_display_name = auto_matched_qc.replace("QC ", "") if auto_matched_qc else selected_room
+
+            st.markdown("---")
+            
+            # --- STEP 1: SUHU & KELEMBAPAN (OTOMATIS SESUAI RUANGAN PILIHAN) ---
+            st.subheader(f"Step 1: 🌡️ Suhu & Kelembapan Ruangan ({selected_room.replace(' Oct', '')})")
             col_s, col_k = st.columns(2)
             with col_s:
                 suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
@@ -520,53 +543,47 @@ else:
 
             st.markdown("---")
             
-            # --- STEP 2: PILIHAN QC (HANYA BERLAKU UNTUK MODALITAS) ---
-            st.subheader("Step 2: 📋 Daily Quality Control / QC (Khusus Modalitas)")
-            include_qc = st.checkbox("Lakukan pengisian checklist QC untuk modalitas ini?", value=False)
+            # --- STEP 2: QC (OTOMATIS SESUAI MODALITAS YANG DIPILIH) ---
+            st.subheader(f"Step 2: 📋 Daily Quality Control — {modality_display_name}")
+            include_qc = st.checkbox(f"Lakukan pengisian checklist QC untuk {modality_display_name}?", value=True)
             
-            target_qc_input = None
             qc_items_list = []
-            
-            if include_qc:
-                qc_sheets = [s for s in xls.sheet_names if "QC" in s] if xls else []
-                target_qc_input = st.selectbox("Pilih Modalitas QC", qc_sheets)
-                
-                if xls and target_qc_input:
-                    df_qc_sheet = pd.read_excel(xls, sheet_name=target_qc_input, header=None)
-                    param_idx = 5
-                    for r_i in [8, 7, 6]:
-                        if r_i < len(df_qc_sheet):
-                            row_h = [str(x).upper() for x in df_qc_sheet.iloc[r_i].values]
-                            for c_i, val in enumerate(row_h):
-                                if "PARAMETER" in val:
-                                    param_idx = c_i
-                                    break
-                            if param_idx != 5:
+            if include_qc and auto_matched_qc and xls:
+                df_qc_sheet = pd.read_excel(xls, sheet_name=auto_matched_qc, header=None)
+                param_idx = 5
+                for r_i in [8, 7, 6]:
+                    if r_i < len(df_qc_sheet):
+                        row_h = [str(x).upper() for x in df_qc_sheet.iloc[r_i].values]
+                        for c_i, val in enumerate(row_h):
+                            if "PARAMETER" in val:
+                                param_idx = c_i
                                 break
+                        if param_idx != 5:
+                            break
 
-                    curr_cat = ""
-                    for idx, row in df_qc_sheet.iterrows():
-                        if idx >= 8:
-                            r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
-                            r_text = " ".join(r_vals).upper()
-                            if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
-                                continue
-                            non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
-                            if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
-                                curr_cat = non_empty[0]
-                                continue
-                            if len(r_vals) > 1 and r_vals[0].isdigit():
-                                keg = r_vals[1].strip()
-                                param = r_vals[param_idx].strip() if param_idx < len(r_vals) else ""
-                                if not param:
-                                    for c in range(2, param_idx + 1):
-                                        if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
-                                            param = r_vals[c].strip()
-                                            break
-                                qc_items_list.append((curr_cat, r_vals[0], keg, param))
+                curr_cat = ""
+                for idx, row in df_qc_sheet.iterrows():
+                    if idx >= 8:
+                        r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
+                        r_text = " ".join(r_vals).upper()
+                        if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
+                            continue
+                        non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
+                        if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
+                            curr_cat = non_empty[0]
+                            continue
+                        if len(r_vals) > 1 and r_vals[0].isdigit():
+                            keg = r_vals[1].strip()
+                            param = r_vals[param_idx].strip() if param_idx < len(r_vals) else ""
+                            if not param:
+                                for c in range(2, param_idx + 1):
+                                    if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
+                                        param = r_vals[c].strip()
+                                        break
+                            qc_items_list.append((curr_cat, r_vals[0], keg, param))
 
             qc_responses = {}
-            if include_qc:
+            if include_qc and auto_matched_qc:
                 active_category = ""
                 row_idx_tracker = 0
                 for cat, no, keg, param in qc_items_list:
@@ -578,21 +595,21 @@ else:
                     qc_responses[row_idx_tracker] = st.radio(
                         label, 
                         ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
-                        key=f"step_qc_{target_qc_input}_{row_idx_tracker}"
+                        key=f"synced_qc_{auto_matched_qc}_{row_idx_tracker}"
                     )
                     row_idx_tracker += 1
 
-            submitted_data = st.form_submit_button("🚀 Submit Semua Data Harian")
+            submitted_data = st.form_submit_button("🚀 Submit Data Harian")
             
             if submitted_data:
-                # 1. Simpan Data Suhu & Kelembapan (Wajib)
+                # 1. Simpan Suhu & Kelembapan
                 local_suhu = load_local_db(DB_SUHU_FILE)
                 if selected_file not in local_suhu:
                     local_suhu[selected_file] = {}
-                if target_room_input not in local_suhu[selected_file]:
-                    local_suhu[selected_file][target_room_input] = []
+                if selected_room not in local_suhu[selected_file]:
+                    local_suhu[selected_file][selected_room] = []
                     
-                local_suhu[selected_file][target_room_input].append({
+                local_suhu[selected_file][selected_room].append({
                     "tanggal": tanggal_input,
                     "dinas": dinas_input,
                     "petugas": petugas_input,
@@ -601,26 +618,26 @@ else:
                 })
                 save_local_db(DB_SUHU_FILE, local_suhu)
                 
-                # 2. Simpan Data QC (Jika dicentang)
-                if include_qc and target_qc_input:
+                # 2. Simpan QC (Otomatis sinkron dengan modalitas yang dipilih)
+                if include_qc and auto_matched_qc:
                     local_qc = load_local_db(DB_QC_FILE)
                     if selected_file not in local_qc:
                         local_qc[selected_file] = {}
-                    if target_qc_input not in local_qc[selected_file]:
-                        local_qc[selected_file][target_qc_input] = {}
+                    if auto_matched_qc not in local_qc[selected_file]:
+                        local_qc[selected_file][auto_matched_qc] = {}
                         
                     day_key = str(tanggal_input)
-                    if day_key not in local_qc[selected_file][target_qc_input]:
-                        local_qc[selected_file][target_qc_input][day_key] = {}
+                    if day_key not in local_qc[selected_file][auto_matched_qc]:
+                        local_qc[selected_file][auto_matched_qc][day_key] = {}
                         
-                    local_qc[selected_file][target_qc_input][day_key]['worker'] = petugas_input
+                    local_qc[selected_file][auto_matched_qc][day_key]['worker'] = petugas_input
                     for r_idx, resp in qc_responses.items():
                         symbol = "✓" if "Baik" in resp else "X"
-                        local_qc[selected_file][target_qc_input][day_key][str(r_idx)] = {"status": symbol}
+                        local_qc[selected_file][auto_matched_qc][day_key][str(r_idx)] = {"status": symbol}
                         
                     save_local_db(DB_QC_FILE, local_qc)
                     
-                st.success("✅ Data Suhu/Kelembapan & QC berhasil disimpan secara real-time!")
+                st.success(f"✅ Data Suhu & QC untuk **{selected_room.replace(' Oct', '')}** berhasil disimpan secara real-time!")
                 st.balloons()
 
     # ==========================================
