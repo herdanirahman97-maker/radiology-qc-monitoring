@@ -7,7 +7,6 @@ import math
 
 st.set_page_config(page_title="Mandaya Radiology QC & Monitoring", layout="wide")
 
-# Function to encode image for HTML
 def get_image_base64(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -16,11 +15,9 @@ def get_image_base64(image_path):
 
 LOGO_PATH = "logo.png"
 
-# Automatically find and sort all monthly Excel files
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
-# --- HELPER FUNCTION TO GENERATE 1 ROOM'S HTML TABLE ---
 def build_room_html(sheet_name, file_name, df, logo_base64):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
     kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
@@ -38,7 +35,6 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
             except:
                 continue
 
-    # Auto-fill missing data (22°C, 55%, HR)
     for d in range(1, 32):
         for s in ['P', 'S', 'M']:
             if (d, s) not in data_dict:
@@ -51,45 +47,46 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 if data_dict[(d, s)]['nama'] is None or data_dict[(d, s)]['nama'] == "":
                     data_dict[(d, s)]['nama'] = 'HR'
 
-    img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
+    img_html = f"<img src='data:image/png;base64,{logo_base64}' width='170'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     ruang_name = sheet_name.replace(" Oct", "")
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
     header_bg, header_fg, nama_bg = "#002B5B", "#FFFFFF", "#C9DAF8"
     
     html = f"""
-    <div>
-        <div style='display: flex; align-items: center; margin-bottom: 20px; color: black;'>
+    <div class="page-container">
+        <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h3 style='margin: 0; font-weight: 700;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
-                <h4 style='margin: 0; font-weight: 600;'>Departemen Radiologi Tahun 2026</h4>
+                <h2 style='margin: 0; font-weight: 700; font-size: 20px; letter-spacing: 0.5px;'>Form Digital Monitoring Suhu dan Kelembapan</h2>
+                <h4 style='margin: 4px 0 0 0; font-weight: 600; font-size: 14px; color: #333;'>Departemen Radiologi Tahun 2026</h4>
             </div>
+            <div style='flex: 0 0 170px;'></div>
         </div>
         
-        <div style='font-weight: 700; font-size: 14px; margin-bottom: 10px; color: black;'>
+        <div style='font-weight: 700; font-size: 13px; margin-bottom: 8px; color: black;'>
             RUANG : {ruang_name}<br>
             BULAN : {bulan_name} 2026
         </div>
         
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 1100px;'>
+        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 10px; table-layout: fixed;'>
     """
 
     # --- SUHU SECTION ---
-    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>SUHU</th>"
-    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target Temperatur (18 - 23)°C</th></tr>"
+    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>SUHU</th>"
+    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>Target Temperatur (18 - 23)°C</th></tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; width: 40px;'>Tgl</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; width: 35px; padding: 3px;'>Tgl</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{day}</td>"
+        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 3px;'>{day}</td>"
     html += "</tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Dinas</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 3px;'>Dinas</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
         for shift in ['P', 'S', 'M']:
-            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; width: 15px;'>{shift}</td>"
+            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 3px;'>{shift}</td>"
     html += "</tr>"
     
     # Suhu Rows (30 down to 15)
@@ -99,7 +96,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         label_bg = "#F4CCCC" if is_out else "#FFFFFF"
         label_color = "red" if is_out else "black"
         
-        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color};'>{temp}</td>"
+        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 2px;'>{temp}</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
@@ -107,25 +104,25 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 dot = ""
                 if val is not None and round(val) == temp:
                     dot_color = "red" if val < 18 or val > 23 else "black"
-                    dot = f"<span style='color: {dot_color}; font-size: 16px; line-height: 1;'>●</span>"
-                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0;'>{dot}</td>"
+                    dot = f"<span style='color: {dot_color}; font-size: 14px; line-height: 1;'>●</span>"
+                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 16px;'>{dot}</td>"
         html += "</tr>"
         
     # --- KELEMBAPAN SECTION ---
-    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>KELEMBAPAN</th>"
-    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target kelembapan ( 40 - 60 % )</th></tr>"
+    html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>KELEMBAPAN</th>"
+    html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 4px;'>Target kelembapan ( 40 - 60 % )</th></tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Tgl</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 3px;'>Tgl</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{day}</td>"
+        html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 3px;'>{day}</td>"
     html += "</tr>"
     
-    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Dinas</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; padding: 3px;'>Dinas</td>"
     for day in range(1, 32):
         bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
         for shift in ['P', 'S', 'M']:
-            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{shift}</td>"
+            html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; padding: 3px;'>{shift}</td>"
     html += "</tr>"
     
     # Kelembapan Rows (65 down to 30, step -5)
@@ -135,7 +132,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
         label_bg = "#F4CCCC" if is_out else "#FFFFFF"
         label_color = "red" if is_out else "black"
         
-        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color};'>{hum}</td>"
+        html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color}; padding: 2px;'>{hum}</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
@@ -143,26 +140,25 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 dot = ""
                 if val is not None and round(val / 5) * 5 == hum:
                     dot_color = "red" if val < 40 or val > 60 else "black"
-                    dot = f"<span style='color: {dot_color}; font-size: 16px; line-height: 1;'>●</span>"
-                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0;'>{dot}</td>"
+                    dot = f"<span style='color: {dot_color}; font-size: 14px; line-height: 1;'>●</span>"
+                html += f"<td style='border: 1px solid black; background-color: {bg}; padding: 0; height: 16px;'>{dot}</td>"
         html += "</tr>"
 
     # --- NAMA PETUGAS SECTION ---
-    html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px;'>NAMA</td>"
+    html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 9px; padding: 3px;'>NAMA</td>"
     for day in range(1, 32):
         for shift in ['P', 'S', 'M']:
             nama = data_dict.get((day, shift), {}).get('nama', '')
-            html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
+            html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 8px; font-weight: 700; padding: 2px;'>{nama}</td>"
     html += "</tr>"
     
-    html += """
+    html += f"""
         </table>
-        <div class="trademark">© 2026 Herdani Rahman</div>
+        <div class="trademark">Source & maintained by Herdani Rahman Account</div>
     </div>
     """
     return html
 
-# --- MAIN APP LOGIC ---
 if not all_files:
     st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
@@ -173,10 +169,8 @@ else:
     raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
     
     view_mode = st.sidebar.radio("Mode Tampilan:", ["Tampilkan 1 Ruangan", "Cetak Semua Ruangan (1 Bulan)"])
-    
     logo_b64 = get_image_base64(LOGO_PATH)
     
-    # Master HTML wrapper with CSS to strip browser headers
     master_html_start = """
     <!DOCTYPE html>
     <html>
@@ -188,13 +182,25 @@ else:
                 background-color: white;
                 color: black;
                 font-family: 'Lexend', sans-serif;
-                padding: 20px;
                 margin: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+            }
+            .page-container {
+                width: 100%;
+                max-width: 1350px;
+                background: white;
+                padding: 10px 20px;
+                box-sizing: border-box;
+                margin-bottom: 40px;
             }
             @media print {
                 .no-print { display: none !important; }
-                @page { size: landscape; margin: 0; } /* MARGIN 0 REMOVES BROWSER WATERMARK/URL */
-                body { padding: 10mm; } /* Restores safe margin inside the page */
+                @page { size: landscape; margin: 0; }
+                body { padding: 5mm; }
+                .page-container { margin-bottom: 0; padding: 0; width: 100%; max-width: none; }
                 .page-break { page-break-after: always; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
@@ -202,22 +208,24 @@ else:
                 background-color: #002B5B;
                 color: white;
                 border: none;
-                padding: 10px 20px;
+                padding: 10px 24px;
                 font-family: 'Lexend', sans-serif;
                 font-weight: 700;
                 font-size: 14px;
-                border-radius: 5px;
+                border-radius: 6px;
                 cursor: pointer;
-                margin-bottom: 20px;
+                margin: 15px 0 25px 0;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }
             .print-btn:hover { background-color: #004080; }
             .trademark {
                 text-align: right; 
-                font-size: 11px; 
-                color: #777777; 
-                margin-top: 8px; 
-                font-weight: 700; 
+                font-size: 9px; 
+                color: #888888; 
+                margin-top: 6px; 
+                font-weight: 400; 
                 font-style: italic;
+                letter-spacing: 0.3px;
             }
         </style>
     </head>
@@ -238,20 +246,16 @@ else:
             df = pd.read_excel(xls, sheet_name=selected_sheet)
             room_html = build_room_html(selected_sheet, selected_file, df, logo_b64)
             final_html = master_html_start + room_html + master_html_end
-            components.html(final_html, height=850, scrolling=True)
+            components.html(final_html, height=880, scrolling=True)
             
     elif view_mode == "Cetak Semua Ruangan (1 Bulan)":
-        st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di bawah.")
+        st.info("💡 Memuat semua ruangan untuk dicetak. Silakan klik tombol Download PDF di atas.")
         all_rooms_html = ""
-        
-        # Loop through all 11 sheets and stitch them together
         for i, sheet in enumerate(raw_data_sheets):
             df = pd.read_excel(xls, sheet_name=sheet)
             all_rooms_html += build_room_html(sheet, selected_file, df, logo_b64)
-            
-            # Add a page break after every sheet EXCEPT the very last one
             if i < len(raw_data_sheets) - 1:
                 all_rooms_html += "<div class='page-break'></div>"
                 
         final_html = master_html_start + all_rooms_html + master_html_end
-        components.html(final_html, height=850, scrolling=True)
+        components.html(final_html, height=880, scrolling=True)
