@@ -12,27 +12,35 @@ def get_image_base64(image_path):
             return base64.b64encode(img_file.read()).decode()
     return ""
 
-# Load Excel File
-EXCEL_FILE = "1. Januari.xlsx"
 LOGO_PATH = "logo.png"
 
-if not os.path.exists(EXCEL_FILE):
-    st.error(f"File database '{EXCEL_FILE}' tidak ditemukan!")
+# Automatically find and sort all monthly Excel files (1. Januari, 2. Februari, etc.)
+all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
+# Sort files numerically by the number at the beginning of the filename
+all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
+
+if not all_files:
+    st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
 else:
-    xls = pd.ExcelFile(EXCEL_FILE)
+    st.sidebar.header("Preview Data Bulan Sebelumnya")
     
-    # Find raw data sheets (ending in "Oct")
+    # Dropdown 1: Select Month
+    selected_file = st.sidebar.selectbox("Pilih Bulan Database:", all_files)
+    
+    # Load the chosen file
+    xls = pd.ExcelFile(selected_file)
+    
+    # Find raw data sheets (ending in "Oct" for raw gform data)
     raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
     
-    # Sidebar
-    st.sidebar.header("Preview Data Bulan Sebelumnya")
+    # Dropdown 2: Select Room/Modality
     selected_sheet = st.sidebar.selectbox("Pilih Ruangan / Modality:", raw_data_sheets)
     
     if selected_sheet:
-        # Load raw data
+        # Load raw data from the selected month and room
         df = pd.read_excel(xls, sheet_name=selected_sheet)
         
-        # Identify columns
+        # Identify columns dynamically
         suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
         kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
         
@@ -56,6 +64,8 @@ else:
         img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
         
         ruang_name = selected_sheet.replace(" Oct", "")
+        # Extract month name from filename (e.g. "1. Januari.xlsx" -> "JANUARI")
+        bulan_name = selected_file.split(".")[1].replace("xlsx", "").strip().upper()
         
         html = f"""
         <div style='display: flex; align-items: center; margin-bottom: 20px;'>
@@ -67,7 +77,7 @@ else:
         </div>
         <div style='font-family: sans-serif; font-weight: bold; font-size: 14px; margin-bottom: 10px;'>
             RUANG : {ruang_name}<br>
-            BULAN : JANUARI 2026
+            BULAN : {bulan_name} 2026
         </div>
         
         <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
@@ -133,7 +143,6 @@ else:
                 for shift in ['P', 'S', 'M']:
                     val = data_dict.get((day, shift), {}).get('kel')
                     dot = ""
-                    # Rounding to nearest 5 to place the dot on the correct line
                     if val is not None and round(val / 5) * 5 == hum:
                         dot_color = "red" if val < 40 or val > 60 else "black"
                         dot = f"<span style='color: {dot_color}; font-size: 14px;'>●</span>"
@@ -151,5 +160,4 @@ else:
         
         html += "</table>"
         
-        # Render the custom HTML grid in Streamlit
         st.markdown(html, unsafe_allow_html=True)
