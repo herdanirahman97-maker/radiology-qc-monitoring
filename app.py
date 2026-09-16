@@ -14,9 +14,9 @@ def get_image_base64(image_path):
     return ""
 
 LOGO_PATH = "logo.png"
-SIG1_PATH = "sig1.jpeg"
-SIG2_PATH = "sig2.jpeg"
-SIG3_PATH = "sig3.jpeg"
+SIG1_PATH = "sig1.png"
+SIG2_PATH = "sig2.png"
+SIG3_PATH = "sig3.png"
 
 all_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and f[0].isdigit()]
 all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
@@ -34,7 +34,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
                 shift = str(row['Jadwal Dinas']).strip().upper()
                 suhu = float(row[suhu_col]) if pd.notna(row[suhu_col]) else None
                 kel = float(row[kel_col]) if pd.notna(row[kel_col]) else None
-                nama = str(row['Nama Petugas']).strip() if pd.notna(row['Nama Petugas']) and str(row['Nama Petugas']).strip() != "" else None
+                nama = str(row['Nama Petugas']).strip() if pd.notna(row['Nama Petugas']) and str(row['Nama Petugas']).strip() != "" else "HR"
                 data_dict[(day, shift)] = {'suhu': suhu, 'kel': kel, 'nama': nama}
             except:
                 continue
@@ -147,7 +147,7 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px;'>NAMA</td>"
     for day in range(1, 32):
         for shift in ['P', 'S', 'M']:
-            nama = data_dict.get((day, shift), {}).get('nama', '')
+            nama = data_dict.get((day, shift), {}).get('nama', 'HR')
             html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
     html += "</tr>"
     
@@ -158,14 +158,13 @@ def build_room_html(sheet_name, file_name, df, logo_base64):
     """
     return html
 
-# --- PHASE 2: FULL QC FORM BUILDER WITH DYNAMIC WORKER NAMES ---
+# --- PHASE 2: FULL QC FORM BUILDER WITH DYNAMIC WORKER NAMES & HR FALLBACK ---
 def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, sig3_b64):
     img_html = f"<img src='data:image/png;base64,{logo_base64}' width='150'>" if logo_base64 else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
     
     modality_title = sheet_name.replace("QC ", "")
     
-    # Pre-detect the exact row values for "NAMA PEKERJA RADIASI"
     name_row_vals = None
     for idx, row in df.iterrows():
         row_str = str(row.values)
@@ -202,7 +201,6 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
         is_header = (row_vals[0] == "NO")
         is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
         
-        # Stop before Excel's footer signature block rows
         if idx >= 44 or "Disiapkan" in str(row.values) or "Mengetahui" in str(row.values):
             continue
             
@@ -220,23 +218,18 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
             table_html += "<tr style='background-color: #C9DAF8; font-weight: bold; height: 32px;'>"
             table_html += "<td colspan='5' style='border: 1px solid black; padding: 5px; text-align: center;'>NAMA PEKERJA RADIASI</td>"
             
-            # Map day 1 to 31 initials from detected name row
             for day_idx in range(1, 32):
                 val = ""
-                # Try finding value at offset or scan name row cells
                 if name_row_vals:
-                    for col_i, cell in enumerate(name_row_vals):
-                        if cell.strip() != "" and cell != "NAMA PEKERJA RADIASI" and col_i >= 5:
-                            # Assign sequentially if matched
-                            pass
-                    if (day_idx + 5) < len(name_row_vals):
-                        val = name_row_vals[day_idx + 5]
-                    elif (day_idx + 6) < len(name_row_vals):
-                        val = name_row_vals[day_idx + 6]
+                    if (day_idx + 5) < len(name_row_vals) and name_row_vals[day_idx + 5].strip() != "":
+                        val = name_row_vals[day_idx + 5].strip()
+                    elif (day_idx + 6) < len(name_row_vals) and name_row_vals[day_idx + 6].strip() != "":
+                        val = name_row_vals[day_idx + 6].strip()
+                if not val:
+                    val = "HR"
                 table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
         else:
-            # Skip empty rows or extra padding rows
             if row_vals[0] == "" and row_vals[1] == "" and row_vals[4] == "":
                 continue
             table_html += "<tr style='height: 30px;'>"
@@ -252,9 +245,9 @@ def build_qc_html(sheet_name, file_name, df, logo_base64, sig1_b64, sig2_b64, si
     table_html += "</table>"
     html += table_html
     
-    sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<span style='color: #888; font-size: 10px;'>[sig1.png missing]</span>"
-    sig2_img = f"<img src='data:image/png;base64,{sig2_b64}' width='110'>" if sig2_b64 else "<span style='color: #888; font-size: 10px;'>[sig2.png missing]</span>"
-    sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<span style='color: #888; font-size: 10px;'>[sig3.png missing]</span>"
+    sig1_img = f"<img src='data:image/png;base64,{sig1_b64}' width='110'>" if sig1_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 1]</div>"
+    sig2_img = f"<img src='data:image/png;base64,{sig2_b64}' width='110'>" if sig2_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 2]</div>"
+    sig3_img = f"<img src='data:image/png;base64,{sig3_b64}' width='110'>" if sig3_b64 else "<div style='color: #888; font-size: 10px; padding: 20px;'>[Tanda Tangan 3]</div>"
     
     html += f"""
     <div style="display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-start; width: 100%;">
