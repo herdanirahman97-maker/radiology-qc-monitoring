@@ -159,12 +159,12 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     
     html += f"""
         </table>
-        <div class="trademark">Source & maintained by Herdani Rahman Account</div>
+        <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
 
-# --- PHASE 2: ROBUST QC FORM BUILDER WITH DUAL-COLUMN TEXT RECOVERY ---
+# --- PHASE 2: STRICT CLEAN QC FORM BUILDER ---
 def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     bulan_name = file_name.split(".")[1].replace("xlsx", "").strip().upper()
@@ -202,14 +202,16 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             continue
             
         row_vals = [str(x) if pd.notna(x) else "" for x in row.values]
+        row_text_joined = " ".join(row_vals).upper()
         
-        is_category = (row_vals[1] == "" and row_vals[2] == "" and row_vals[3] == "" and row_vals[4] == "" and row_vals[5] == "" and row_vals[0] != "" and row_vals[0] != "NO" and "NAMA PEKERJA RADIASI" not in row_vals[0])
-        is_header = (row_vals[0] == "NO")
-        is_names = ("NAMA PEKERJA RADIASI" in str(row.values))
-        
-        if idx >= 45 or "Disiapkan" in str(row.values) or "Mengetahui" in str(row.values):
+        # Skip signature block and footer rows entirely
+        if idx >= 42 or any(kwd in row_text_joined for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO HARJANTO", "CHRISTOPHER", "PIC.", "KOORDINATOR", "HO. DEPT"]):
             continue
             
+        is_category = (row_vals[1] == "" and row_vals[2] == "" and row_vals[3] == "" and row_vals[4] == "" and row_vals[5] == "" and row_vals[0] != "" and row_vals[0] != "NO" and "NAMA PEKERJA RADIASI" not in row_vals[0])
+        is_header = (row_vals[0] == "NO")
+        is_names = ("NAMA PEKERJA RADIASI" in row_text_joined)
+        
         if is_header:
             table_html += "<tr style='background-color: #002B5B; color: white; font-weight: bold;'>"
             table_html += "<td style='border: 1px solid black; padding: 6px; text-align: center;' width='45px'>NO</td>"
@@ -227,14 +229,12 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             if row_vals[0] == "" and row_vals[1] == "" and row_vals[2] == "" and row_vals[3] == "" and row_vals[4] == "" and row_vals[5] == "":
                 continue
                 
-            # Dual-column fallback scan for Kegiatan
             kegiatan = ""
             for col_idx in [1, 2, 3]:
                 if col_idx < len(row_vals) and row_vals[col_idx].strip() != "":
                     kegiatan = row_vals[col_idx].strip()
                     break
                     
-            # Dual-column fallback scan for Parameter
             parameter = ""
             for col_idx in [4, 5, 6, 7]:
                 if col_idx < len(row_vals) and row_vals[col_idx].strip() != "":
@@ -250,7 +250,11 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
                 val = ""
                 for offset in [5, 6, 7, 8, 9, 10]:
                     if (day_idx + offset) < len(row_vals) and row_vals[day_idx + offset].strip() != "":
-                        val = row_vals[day_idx + offset].strip()
+                        cell_val = row_vals[day_idx + offset].strip()
+                        # Strict filter: ignore titles, long names, or metadata leaking into grid cells
+                        if any(bad in cell_val.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER", "KOORDINATOR", "HO. DEPT", "PIC"]):
+                            continue
+                        val = cell_val
                         break
                 if not val or val == "" or "#REF!" in val:
                     val = "✓"
@@ -264,9 +268,11 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
         val = ""
         if name_row_vals:
             for offset in [5, 6, 7, 8, 9, 10]:
-                if (day_idx + offset) < len(name_row_vals) and name_row_vals[day_idx + offset].strip() != "" and name_row_vals[day_idx + offset] != "NAMA PEKERJA RADIASI":
-                    val = name_row_vals[day_idx + offset].strip()
-                    break
+                if (day_idx + offset) < len(name_row_vals) and name_row_vals[day_idx + offset].strip() != "" and "NAMA PEKERJA" not in name_row_vals[day_idx + offset]:
+                    cell_val = name_row_vals[day_idx + offset].strip()
+                    if not any(bad in cell_val.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER", "KOORDINATOR", "HO. DEPT"]):
+                        val = cell_val
+                        break
         if not val or "#REF!" in val:
             val = "HR"
         table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
@@ -311,10 +317,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
             </tr>
         </table>
     </div>
-    <div class="trademark">Source & maintained by Herdani Rahman Account
-    
-    
-    </div>
+    <div class="trademark">Source & maintained by Herdani Rahman</div>
     </div>
     """
     return html
@@ -446,4 +449,4 @@ else:
                 all_qc_html += build_qc_html(qsheet, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
                 if i < len(qc_sheets) - 1:
                     all_qc_html += "<div class='page-break'></div>"
-            components.html(master_html_start + all_qc_html + master_html_end, height=950, scrolling=True)
+            components.html(master_html_start + all_qc_html + master_html_end, height=850, scrolling=True)
