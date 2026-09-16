@@ -33,8 +33,12 @@ else:
     # Find raw data sheets (ending in "Oct" for raw gform data)
     raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
     
-    # Dropdown 2: Select Room/Modality
-    selected_sheet = st.sidebar.selectbox("Pilih Ruangan / Modality:", raw_data_sheets)
+    # Dropdown 2: Select Room/Modality (Hides " Oct" from the UI)
+    selected_sheet = st.sidebar.selectbox(
+        "Pilih Ruangan / Modality:", 
+        raw_data_sheets, 
+        format_func=lambda x: str(x).replace(" Oct", "").strip()
+    )
     
     if selected_sheet:
         # Load raw data from the selected month and room
@@ -80,49 +84,56 @@ else:
         ruang_name = selected_sheet.replace(" Oct", "")
         bulan_name = selected_file.split(".")[1].replace("xlsx", "").strip().upper()
         
-        # HTML construction with forced colors for Dark Mode compatibility
+        header_bg = "#002B5B" # Dark Blue background for headers
+        header_fg = "#FFFFFF" # White text for headers
+        nama_bg = "#C9DAF8"   # Light blue for NAMA row
+        
         html = f"""
-        <div style='display: flex; align-items: center; margin-bottom: 20px; color: inherit;'>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
+        </style>
+        
+        <div style='display: flex; align-items: center; margin-bottom: 20px; color: inherit; font-family: "Lexend", sans-serif;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h3 style='margin: 0; font-family: sans-serif; font-weight: bold;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
-                <h4 style='margin: 0; font-family: sans-serif; font-weight: bold;'>Departemen Radiologi Tahun 2026</h4>
+                <h3 style='margin: 0; font-weight: 700;'>Form Digital Monitoring Suhu dan Kelembapan</h3>
+                <h4 style='margin: 0; font-weight: 600;'>Departemen Radiologi Tahun 2026</h4>
             </div>
         </div>
-        <div style='font-family: sans-serif; font-weight: bold; font-size: 14px; margin-bottom: 10px; color: inherit;'>
+        <div style='font-family: "Lexend", sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 10px; color: inherit;'>
             RUANG : {ruang_name}<br>
             BULAN : {bulan_name} 2026
         </div>
         
         <div style='overflow-x: auto;'>
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif; min-width: 1200px;'>
+        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: "Lexend", sans-serif; min-width: 1200px;'>
         """
 
-        header_bg = "#002B5B" # Dark Blue background for headers
-        header_fg = "#FFFFFF" # White text for headers
-
         # --- SUHU SECTION ---
-        html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>SUHU</th>"
-        html += f"<th colspan='90' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>Target Temperatur (18 - 23)°C</th></tr>"
+        html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>SUHU</th>"
+        html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target Temperatur (18 - 23)°C</th></tr>"
         
-        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold; width: 40px;'>Tgl</td>"
+        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700; width: 40px;'>Tgl</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-            html += f"<td colspan='3' style='border: 1px solid black; font-weight: bold; background-color: {bg}; color: black;'>{day}</td>"
+            html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{day}</td>"
         html += "</tr>"
         
-        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>Dinas</td>"
+        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Dinas</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
-                html += f"<td style='border: 1px solid black; font-weight: bold; background-color: {bg}; color: black; width: 15px;'>{shift}</td>"
+                html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black; width: 15px;'>{shift}</td>"
         html += "</tr>"
         
         # Suhu Rows (30 down to 15)
         for temp in range(30, 14, -1):
             html += "<tr>"
-            label_color = "red" if temp < 18 or temp > 23 else "black"
-            html += f"<td style='border: 1px solid black; background-color: #FFFFFF; font-weight: bold; color: {label_color};'>{temp}</td>"
+            is_out_of_bounds = temp < 18 or temp > 23
+            label_bg = "#F4CCCC" if is_out_of_bounds else "#FFFFFF"
+            label_color = "red" if is_out_of_bounds else "black"
+            
+            html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color};'>{temp}</td>"
             for day in range(1, 32):
                 bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
                 for shift in ['P', 'S', 'M']:
@@ -135,27 +146,30 @@ else:
             html += "</tr>"
             
         # --- KELEMBAPAN SECTION ---
-        html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>KELEMBAPAN</th>"
-        html += f"<th colspan='90' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>Target kelembapan ( 40 - 60 % )</th></tr>"
+        html += f"<tr><th colspan='4' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>KELEMBAPAN</th>"
+        html += f"<th colspan='93' style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Target kelembapan ( 40 - 60 % )</th></tr>"
         
-        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>Tgl</td>"
+        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Tgl</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
-            html += f"<td colspan='3' style='border: 1px solid black; font-weight: bold; background-color: {bg}; color: black;'>{day}</td>"
+            html += f"<td colspan='3' style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{day}</td>"
         html += "</tr>"
         
-        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold;'>Dinas</td>"
+        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: 700;'>Dinas</td>"
         for day in range(1, 32):
             bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
-                html += f"<td style='border: 1px solid black; font-weight: bold; background-color: {bg}; color: black;'>{shift}</td>"
+                html += f"<td style='border: 1px solid black; font-weight: 700; background-color: {bg}; color: black;'>{shift}</td>"
         html += "</tr>"
         
         # Kelembapan Rows (65 down to 30, step -5)
         for hum in range(65, 29, -5):
             html += "<tr>"
-            label_color = "red" if hum < 40 or hum > 60 else "black"
-            html += f"<td style='border: 1px solid black; background-color: #FFFFFF; font-weight: bold; color: {label_color};'>{hum}</td>"
+            is_out_of_bounds = hum < 40 or hum > 60
+            label_bg = "#F4CCCC" if is_out_of_bounds else "#FFFFFF"
+            label_color = "red" if is_out_of_bounds else "black"
+            
+            html += f"<td style='border: 1px solid black; background-color: {label_bg}; font-weight: 700; color: {label_color};'>{hum}</td>"
             for day in range(1, 32):
                 bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
                 for shift in ['P', 'S', 'M']:
@@ -168,12 +182,11 @@ else:
             html += "</tr>"
 
         # --- NAMA PETUGAS SECTION ---
-        html += f"<tr><td style='border: 1px solid black; background-color: {header_bg}; color: {header_fg}; font-weight: bold; font-size: 10px;'>NAMA</td>"
+        html += f"<tr><td style='border: 1px solid black; background-color: {nama_bg}; color: black; font-weight: 700; font-size: 10px;'>NAMA</td>"
         for day in range(1, 32):
-            bg = "#E0F7FA" if day % 2 == 0 else "#FFFFFF"
             for shift in ['P', 'S', 'M']:
                 nama = data_dict.get((day, shift), {}).get('nama', '')
-                html += f"<td style='border: 1px solid black; background-color: {bg}; color: black; font-size: 9px; font-weight: bold;'>{nama}</td>"
+                html += f"<td style='border: 1px solid black; background-color: {nama_bg}; color: #002B5B; font-size: 9px; font-weight: 700;'>{nama}</td>"
         html += "</tr>"
         
         html += "</table></div>"
