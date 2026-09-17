@@ -49,76 +49,99 @@ xls_global = pd.ExcelFile(active_file) if os.path.exists(active_file) else None
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
 ACTIVE_MONTHS = ["Oktober", "November", "Desember"]
 
-# --- GLOBAL CSS: CLEAN WHITE THEME & STYLING ---
+# --- GLOBAL CSS: PREMIUM WEB DESIGNER THEME (MODERN HOSPITAL UI) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
     .stApp {
-        background-color: #FFFFFF !important;
-        font-family: 'Lexend', sans-serif;
-        color: #002B5B !important;
+        background-color: #F8FAFC !important;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: #0F172A !important;
     }
     
     p, span, label, div, h1, h2, h3, h4, h5, h6, .stMarkdown {
-        color: #002B5B !important;
+        color: #0F172A !important;
     }
     
+    /* Header Card Styling */
+    .header-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
+        padding: 24px 32px;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+        margin-bottom: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    /* Selectbox Styling */
     .stSelectbox div[data-baseweb="select"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #002B5B !important;
-        border-radius: 8px !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     
     .stSelectbox div[data-baseweb="select"] span {
-        color: #002B5B !important;
+        color: #0F172A !important;
         font-weight: 600 !important;
     }
 
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"], div[role="listbox"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #002B5B !important;
-        border-radius: 8px !important;
-        box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.15) !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1) !important;
     }
     
     div[data-baseweb="popover"] *, div[data-baseweb="menu"] *, ul[data-baseweb="menu"] *, li[role="option"] *, div[role="listbox"] * {
-        color: #002B5B !important;
+        color: #0F172A !important;
         background-color: #FFFFFF !important;
         font-weight: 600 !important;
     }
     
     li[role="option"]:hover {
-        background-color: #E2E8F0 !important;
+        background-color: #F1F5F9 !important;
         color: #002B5B !important;
     }
 
+    /* QC Question Card */
     .qc-question-card {
-        background-color: #F8FAFC;
-        border: 1px solid #CBD5E1;
-        border-radius: 10px;
-        padding: 16px 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 18px 24px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+        transition: all 0.2s ease;
+    }
+    .qc-question-card:hover {
+        border-color: #CBD5E1;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
     }
 
+    /* Custom Modern Submit Button */
     div.stButton > button, form button[type="submit"] {
-        background-color: #002B5B !important;
+        background: linear-gradient(135deg, #002B5B 0%, #004080 100%) !important;
         color: #FFFFFF !important;
-        font-family: 'Lexend', sans-serif !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-weight: 700 !important;
-        font-size: 16px !important;
-        padding: 12px 30px !important;
-        border-radius: 8px !important;
+        font-size: 15px !important;
+        padding: 14px 32px !important;
+        border-radius: 12px !important;
         border: none !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 43, 91, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(0, 43, 91, 0.25) !important;
         transition: all 0.3s ease !important;
         width: 100% !important;
     }
     
     div.stButton > button:hover, form button[type="submit"]:hover {
-        background-color: #004080 !important;
-        box-shadow: 0 6px 8px -1px rgba(0, 43, 91, 0.3) !important;
+        background: linear-gradient(135deg, #001E3F 0%, #002B5B 100%) !important;
+        box-shadow: 0 6px 16px rgba(0, 43, 91, 0.35) !important;
+        transform: translateY(-1px);
     }
 
     #MainMenu {visibility: hidden;}
@@ -163,7 +186,7 @@ def build_room_html(sheet_name, month_name, logo_data_uri):
     header_bg, header_fg, nama_bg = "#002B5B", "#FFFFFF", "#C9DAF8"
     
     html = f"""
-    <div class="page-container" style="background: white; padding: 20px; margin-bottom: 30px; border: 1px solid #E2E8F0; border-radius: 8px;">
+    <div class="page-container" style="background: white; padding: 25px; margin-bottom: 35px; border: 1px solid #CBD5E1; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 15px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
@@ -291,7 +314,7 @@ def build_qc_html(sheet_name, month_name, df, logo_data_uri, sig1_uri, sig2_uri,
     sheet_overrides = local_qc_db.get(file_key, {}).get(sheet_name, {})
 
     html = f"""
-    <div class="page-container" style="background: white; padding: 20px;">
+    <div class="page-container" style="background: white; padding: 25px; margin-bottom: 35px; border: 1px solid #CBD5E1; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
@@ -423,20 +446,20 @@ sig1_b64 = get_image_base64(SIG1_PATH)
 sig2_b64 = get_image_base64(SIG2_PATH)
 sig3_b64 = get_image_base64(SIG3_PATH)
 
-# --- HEADER: LOGO DI KIRI ATAS, JUDUL DI TENGAH ---
-logo_img_tag = f"<img src='{logo_b64}' width='140'>" if logo_b64 else "<b style='color:#002B5B;'>MANDAYA HOSPITAL</b>"
+# --- HEADER: DESIGN PROFESIONAL KHAZANAH KORPORAT RUMAH SAKIT ---
+logo_img_tag = f"<img src='{logo_b64}' width='150'>" if logo_b64 else "<b style='color:#002B5B;'>MANDAYA HOSPITAL</b>"
 
 st.markdown(f"""
-<div style="background: #FFFFFF; border-bottom: 2px solid #002B5B; padding: 15px 25px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-    <div style="flex: 0 0 auto;">
+<div class="header-card">
+    <div style="display: flex; align-items: center; gap: 20px;">
         {logo_img_tag}
     </div>
-    <div style="flex: 1 1 auto; text-align: center;">
-        <h2 style="margin: 0; color: #002B5B; font-size: 22px; font-weight: 700;">MANDAYA ROYAL HOSPITAL — RADIOLOGY QC SYSTEM</h2>
-        <p style="margin: 4px 0 0 0; color: #555; font-size: 13px;">Departemen Radiologi Tahun 2026 | Go-Live Version</p>
+    <div style="text-align: center; flex-grow: 1;">
+        <h2 style="margin: 0; color: #002B5B; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">MANDAYA ROYAL HOSPITAL — RADIOLOGY QC SYSTEM</h2>
+        <p style="margin: 6px 0 0 0; color: #64748B; font-size: 14px; font-weight: 500;">Departemen Radiologi Tahun 2026 | Enterprise Monitoring Portal</p>
     </div>
-    <div style="flex: 0 0 140px; text-align: right; font-size: 12px; color: #666; font-weight: 600;">
-        v2.0 Standalone
+    <div style="text-align: right;">
+        <span style="background: #E2E8F0; color: #002B5B; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;">v2.5 Live</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -464,11 +487,11 @@ master_html_start = """
 <head>
     <meta charset="utf-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
         body {
             background-color: white;
             color: black;
-            font-family: 'Lexend', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             margin: 0;
             overflow-x: auto;
         }
@@ -498,18 +521,19 @@ master_html_start = """
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         .print-btn {
-            background-color: #002B5B;
+            background: linear-gradient(135deg, #002B5B 0%, #004080 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
-            font-family: 'Lexend', sans-serif;
+            padding: 12px 24px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             font-weight: 700;
             font-size: 14px;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            margin: 15px 0 15px 20px;
+            margin: 15px 0 20px 20px;
+            box-shadow: 0 4px 12px rgba(0,43,91,0.2);
         }
-        .print-btn:hover { background-color: #004080; }
+        .print-btn:hover { background: linear-gradient(135deg, #001E3F 0%, #002B5B 100%); }
         .trademark {
             text-align: left; 
             font-size: 11px; 
@@ -523,20 +547,21 @@ master_html_start = """
 </head>
 <body>
     <div class="no-print">
-        <button class="print-btn" onclick="window.print()">🖨️ Download / Save as PDF</button>
+        <button class="print-btn" onclick="window.print()">🖨️ Download / Save as PDF (Print All)</button>
     </div>
 """
 master_html_end = "</body></html>"
 
 raw_suhu_sheets = [s for s in xls_global.sheet_names if str(s).endswith("Oct")] if xls_global else []
 clean_room_list = [s.replace(" Oct", "") for s in raw_suhu_sheets]
+qc_sheets_all = [s for s in xls_global.sheet_names if "QC" in s] if xls_global else []
 
 # ==========================================
 # 1. MENU: INPUT DATA
 # ==========================================
 if main_menu == "📝 Input Data":
     st.markdown("### 📝 Form Pengisian Data Harian (Bulanan & Terpadu)")
-    st.markdown("<p style='color: #002B5B !important;'>Pilih bulan target dan modalitas Anda. Checklist QC otomatis hanya muncul pada **Dinas Pagi (P)**.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748B !important;'>Pilih bulan target dan modalitas Anda. Checklist QC otomatis hanya muncul pada **Dinas Pagi (P)**.</p>", unsafe_allow_html=True)
     
     col_m1, col_m2 = st.columns(2)
     with col_m1:
@@ -635,9 +660,9 @@ if main_menu == "📝 Input Data":
                     )
                     row_idx_tracker += 1
         elif has_qc_room and not is_morning_shift:
-            st.markdown(f"<br><div style='padding: 15px; background-color: #FEF3C7; border-radius: 8px; font-weight: 600; color: #92400E;'>ℹ️ Informasi: Anda memilih **Dinas {dinas_input}**. Checklist QC hanya diisi pada **Dinas Pagi (P)** (dilakukan sekali sehari). Form ini hanya akan menyimpan Suhu & Kelembapan.</div>", unsafe_allow_html=True)
+            st.markdown(f"<br><div style='padding: 16px; background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 12px; font-weight: 600; color: #92400E;'>ℹ️ Informasi: Anda memilih **Dinas {dinas_input}**. Checklist QC hanya diisi pada **Dinas Pagi (P)** (dilakukan sekali sehari). Form ini hanya akan menyimpan Suhu & Kelembapan.</div>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<br><div style='padding: 15px; background-color: #E2E8F0; border-radius: 8px; font-weight: 600; color: #002B5B;'>ℹ️ Ruangan **{selected_room_clean}** hanya memerlukan pemantauan Suhu & Kelembapan (Tidak memiliki checklist QC).</div>", unsafe_allow_html=True)
+            st.markdown(f"<br><div style='padding: 16px; background-color: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 12px; font-weight: 600; color: #002B5B;'>ℹ️ Ruangan **{selected_room_clean}** hanya memerlukan pemantauan Suhu & Kelembapan (Tidak memiliki checklist QC).</div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         submitted_data = st.form_submit_button("🚀 Submit Data Harian")
@@ -681,11 +706,11 @@ if main_menu == "📝 Input Data":
             st.balloons()
 
 # ==========================================
-# 2. MENU: LIVE PREVIEW BULANAN (DENGAN OPSI PILIH SEMUA & DOWNLOAD ALL)
+# 2. MENU: LIVE PREVIEW BULANAN (DENGAN DOWNLOAD ALL PADA SUHU & QC)
 # ==========================================
 elif main_menu == "📅 Live Preview Bulanan":
     st.markdown("### 📅 Live Preview Rekapitulasi Per Bulan")
-    st.markdown("<p style='color: #002B5B !important;'>Melihat rekapitulasi data real-time untuk bulan Oktober, November, dan Desember.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748B !important;'>Melihat rekapitulasi data real-time untuk bulan Oktober, November, dan Desember.</p>", unsafe_allow_html=True)
     
     col_live1, col_live2, col_live3 = st.columns(3)
     with col_live1:
@@ -697,13 +722,13 @@ elif main_menu == "📅 Live Preview Bulanan":
             room_selection_options = ["🌐 Pilih Semua Ruangan (Download All)"] + clean_room_list
             selected_room_preview = st.selectbox("Pilih Ruangan:", room_selection_options)
         else:
-            qc_sheets = [s for s in xls_global.sheet_names if "QC" in s] if xls_global else []
-            selected_qc = st.selectbox("Pilih Modality QC:", qc_sheets)
+            qc_selection_options = ["🌐 Pilih Semua Modality (Download All)"] + qc_sheets_all
+            selected_qc = st.selectbox("Pilih Modality QC:", qc_selection_options)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if live_category == "🌡️ Suhu & Kelembapan":
         if selected_room_preview == "🌐 Pilih Semua Ruangan (Download All)":
-            st.markdown("#### 📥 Mode Download All: Menampilkan Seluruh Ruangan Sekaligus")
+            st.markdown("#### 📥 Mode Download All: Menampilkan Seluruh Ruangan (Suhu & Kelembapan) Sekaligus")
             combined_html = ""
             for r_clean in clean_room_list:
                 full_sheet = f"{r_clean} Oct"
@@ -715,9 +740,18 @@ elif main_menu == "📅 Live Preview Bulanan":
             room_html = build_room_html(full_sheet, view_month, logo_b64)
             components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
     else:
-        df_qc = pd.read_excel(xls_global, sheet_name=selected_qc, header=None) if xls_global else pd.DataFrame()
-        qc_html = build_qc_html(selected_qc, view_month, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
-        components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
+        if selected_qc == "🌐 Pilih Semua Modality (Download All)":
+            st.markdown("#### 📥 Mode Download All: Menampilkan Seluruh Modality QC Sekaligus")
+            combined_qc_html = ""
+            for qc_s in qc_sheets_all:
+                df_qc = pd.read_excel(xls_global, sheet_name=qc_s, header=None) if xls_global else pd.DataFrame()
+                combined_qc_html += build_qc_html(qc_s, view_month, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64) + "<div style='page-break-after: always;'></div>"
+            
+            components.html(master_html_start + combined_qc_html + master_html_end, height=1200, scrolling=True)
+        else:
+            df_qc = pd.read_excel(xls_global, sheet_name=selected_qc, header=None) if xls_global else pd.DataFrame()
+            qc_html = build_qc_html(selected_qc, view_month, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
+            components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
 # ==========================================
 # 3. MENU: REVIEW BACKDATE
@@ -757,7 +791,7 @@ elif main_menu == "📂 Review Backdate":
 # ==========================================
 elif main_menu == "⚙️ Revisi / Hapus":
     st.markdown("### ⚙️ Menu Revisi & Penghapusan Data")
-    st.markdown("<p style='color: #002B5B !important;'>Kelola dan hapus data input harian jika terjadi kesalahan tanggal atau nilai.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748B !important;'>Kelola dan hapus data input harian jika terjadi kesalahan tanggal atau nilai.</p>", unsafe_allow_html=True)
     
     col_rev1, col_rev2 = st.columns(2)
     with col_rev1:
