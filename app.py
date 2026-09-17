@@ -126,7 +126,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- MAPPING RUANGAN KE SHEET QC (Ruangan tanpa QC bernilai None) ---
+# --- MAPPING RUANGAN KE SHEET QC ---
 ROOM_TO_QC_MAP = {
     "R.Teknik MRI": None,
     "R.Teknik CT Scan": None,
@@ -146,8 +146,6 @@ def build_room_html(sheet_name, month_name, logo_data_uri):
     data_dict = {}
     local_suhu_db = load_local_db(DB_SUHU_FILE)
     file_key = f"{month_name}"
-    
-    # Menyesuaikan nama sheet dengan tambahan " Oct" di file aslinya jika perlu dicari
     lookup_sheet = sheet_name if sheet_name.endswith("Oct") else f"{sheet_name} Oct"
 
     if file_key in local_suhu_db and lookup_sheet in local_suhu_db[file_key]:
@@ -530,7 +528,6 @@ master_html_start = """
 """
 master_html_end = "</body></html>"
 
-# Daftar ruangan bersih tanpa kata "Oct"
 raw_suhu_sheets = [s for s in xls_global.sheet_names if str(s).endswith("Oct")] if xls_global else []
 clean_room_list = [s.replace(" Oct", "") for s in raw_suhu_sheets]
 
@@ -572,7 +569,6 @@ if main_menu == "📝 Input Data":
             kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
 
         qc_responses = {}
-        # Aturan: QC hanya muncul/wajib jika ruangan punya QC DAN Dinas adalah "P" (Pagi)
         is_morning_shift = (dinas_input == "P")
         show_qc_section = has_qc_room and is_morning_shift
 
@@ -685,7 +681,7 @@ if main_menu == "📝 Input Data":
             st.balloons()
 
 # ==========================================
-# 2. MENU: LIVE PREVIEW BULANAN (DENGAN OPSI PILIH SEMUA RUANGAN)
+# 2. MENU: LIVE PREVIEW BULANAN (DENGAN OPSI PILIH SEMUA & DOWNLOAD ALL)
 # ==========================================
 elif main_menu == "📅 Live Preview Bulanan":
     st.markdown("### 📅 Live Preview Rekapitulasi Per Bulan")
@@ -698,7 +694,7 @@ elif main_menu == "📅 Live Preview Bulanan":
         live_category = st.selectbox("Pilih Kategori:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
     with col_live3:
         if live_category == "🌡️ Suhu & Kelembapan":
-            room_selection_options = ["🌐 Pilih Semua Ruangan"] + clean_room_list
+            room_selection_options = ["🌐 Pilih Semua Ruangan (Download All)"] + clean_room_list
             selected_room_preview = st.selectbox("Pilih Ruangan:", room_selection_options)
         else:
             qc_sheets = [s for s in xls_global.sheet_names if "QC" in s] if xls_global else []
@@ -706,12 +702,14 @@ elif main_menu == "📅 Live Preview Bulanan":
 
     st.markdown("<br>", unsafe_allow_html=True)
     if live_category == "🌡️ Suhu & Kelembapan":
-        if selected_room_preview == "🌐 Pilih Semua Ruangan":
-            st.markdown("#### Menampilkan Seluruh Ruangan (Suhu & Kelembapan)")
+        if selected_room_preview == "🌐 Pilih Semua Ruangan (Download All)":
+            st.markdown("#### 📥 Mode Download All: Menampilkan Seluruh Ruangan Sekaligus")
+            combined_html = ""
             for r_clean in clean_room_list:
                 full_sheet = f"{r_clean} Oct"
-                room_html = build_room_html(full_sheet, view_month, logo_b64)
-                components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
+                combined_html += build_room_html(full_sheet, view_month, logo_b64) + "<div style='page-break-after: always;'></div>"
+            
+            components.html(master_html_start + combined_html + master_html_end, height=1200, scrolling=True)
         else:
             full_sheet = f"{selected_room_preview} Oct"
             room_html = build_room_html(full_sheet, view_month, logo_b64)
