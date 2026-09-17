@@ -45,6 +45,44 @@ all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
 
+# --- GLOBAL CSS UTAMA: WHITE THEME BERSIH & PROFESIONAL ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
+    
+    /* Paksa seluruh background aplikasi menjadi putih bersih */
+    .stApp {
+        background-color: #FFFFFF !important;
+        font-family: 'Lexend', sans-serif;
+        color: #1A1A1A;
+    }
+    
+    /* Sembunyikan elemen default Streamlit yang mengganggu */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Styling Container Kartu Profesional */
+    .mandaya-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+    }
+    
+    /* Header Utama Korporat */
+    .corp-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 2px solid #002B5B;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- HTML BUILDER SUHU & KELEMBAPAN ---
 def build_room_html(sheet_name, file_name, df, logo_data_uri):
     suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
@@ -94,7 +132,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
     header_bg, header_fg, nama_bg = "#002B5B", "#FFFFFF", "#C9DAF8"
     
     html = f"""
-    <div class="page-container">
+    <div class="page-container" style="background: white; padding: 20px;">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 15px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
@@ -223,7 +261,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     sheet_overrides = local_qc_db.get(file_name, {}).get(sheet_name, {})
 
     html = f"""
-    <div class="page-container">
+    <div class="page-container" style="background: white; padding: 20px;">
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
@@ -367,108 +405,119 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- MAIN APP LAYOUT ---
-if not all_files:
-    st.error("Tidak ada file Excel (.xlsx) yang ditemukan di folder!")
-else:
-    st.sidebar.header("🧭 Navigasi Utama")
+# --- HEADER UTAMA (MANDAYA STYLE TOP NAVBAR) ---
+st.markdown("""
+<div style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+    <div style="font-weight: 700; font-size: 18px; color: #002B5B;">MANDAYA ROYAL HOSPITAL — RADIOLOGY QC SYSTEM</div>
+    <div style="font-size: 13px; color: #64748B; font-weight: 500;">Go-Live Version 2026</div>
+</div>
+""", unsafe_allow_html=True)
+
+# --- TAMPILAN PROFESIONAL GRID / TAB MENU UTAMA ---
+# Menggantikan radio button biasa dengan pilihan kartu navigasi ala portal rumah sakit korporat
+main_menu = st.radio(
+    "Pilih Menu Utama:", 
+    ["📂 Review Backdate", "📝 Input Data", "⚙️ Revisi / Hapus"], 
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+logo_b64 = get_image_base64(LOGO_PATH)
+sig1_b64 = get_image_base64(SIG1_PATH)
+sig2_b64 = get_image_base64(SIG2_PATH)
+sig3_b64 = get_image_base64(SIG3_PATH)
+
+master_html_start = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
+        body {
+            background-color: white;
+            color: black;
+            font-family: 'Lexend', sans-serif;
+            margin: 0;
+            overflow-x: auto;
+        }
+        .page-container {
+            width: 1450px;
+            background: white;
+            padding: 20px;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+        .qc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            table-layout: fixed;
+        }
+        .qc-table td {
+            border: 1px solid black;
+            overflow: hidden;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            @page { size: landscape; margin: 0; }
+            body { padding: 10mm; overflow: visible !important; }
+            .page-container { margin: 0 auto; width: 100%; }
+            .page-break { page-break-after: always; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+        .print-btn {
+            background-color: #002B5B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-family: 'Lexend', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 15px 0 15px 20px;
+        }
+        .print-btn:hover { background-color: #004080; }
+        .trademark {
+            text-align: left; 
+            font-size: 11px; 
+            color: #888888; 
+            margin-top: 15px; 
+            font-weight: 400; 
+            font-style: italic;
+            letter-spacing: 0.3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="print-btn" onclick="window.print()">🖨️ Download / Save as PDF</button>
+    </div>
+"""
+master_html_end = "</body></html>"
+
+# ==========================================
+# 1. MENU: REVIEW BACKDATE
+# ==========================================
+if main_menu == "📂 Review Backdate":
+    st.markdown("### 📂 Tinjauan Rekapitulasi Arsip")
     
-    main_menu = st.sidebar.radio("Pilih Menu:", [
-        "📂 Review Backdate", 
-        "📝 Input Data", 
-        "⚙️ Revisi / Hapus"
-    ])
-    
-    logo_b64 = get_image_base64(LOGO_PATH)
-    sig1_b64 = get_image_base64(SIG1_PATH)
-    sig2_b64 = get_image_base64(SIG2_PATH)
-    sig3_b64 = get_image_base64(SIG3_PATH)
-    
-    master_html_start = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
-            body {
-                background-color: white;
-                color: black;
-                font-family: 'Lexend', sans-serif;
-                margin: 0;
-                overflow-x: auto;
-            }
-            .page-container {
-                width: 1450px;
-                background: white;
-                padding: 20px;
-                box-sizing: border-box;
-                margin: 0 auto;
-            }
-            .qc-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 10px;
-                table-layout: fixed;
-            }
-            .qc-table td {
-                border: 1px solid black;
-                overflow: hidden;
-            }
-            @media print {
-                .no-print { display: none !important; }
-                @page { size: landscape; margin: 0; }
-                body { padding: 10mm; overflow: visible !important; }
-                .page-container { margin: 0 auto; width: 100%; }
-                .page-break { page-break-after: always; }
-                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            }
-            .print-btn {
-                background-color: #002B5B;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                font-family: 'Lexend', sans-serif;
-                font-weight: 700;
-                font-size: 14px;
-                border-radius: 5px;
-                cursor: pointer;
-                margin: 15px 0 15px 20px;
-            }
-            .print-btn:hover { background-color: #004080; }
-            .trademark {
-                text-align: left; 
-                font-size: 11px; 
-                color: #888888; 
-                margin-top: 15px; 
-                font-weight: 400; 
-                font-style: italic;
-                letter-spacing: 0.3px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="no-print">
-            <button class="print-btn" onclick="window.print()">🖨️ Download / Save as PDF</button>
-        </div>
-    """
-    master_html_end = "</body></html>"
-    
-    # ==========================================
-    # 1. MENU: REVIEW BACKDATE (Arsip Excel Dipakai Disini)
-    # ==========================================
-    if main_menu == "📂 Review Backdate":
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("📂 Pengaturan Review")
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
+        selected_file = st.selectbox("Pilih Bulan Arsip:", all_files)
+    with col_filter2:
+        review_category = st.selectbox("Pilih Kategori Tinjauan:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
         
-        selected_file = st.sidebar.selectbox("Pilih Bulan Arsip:", all_files)
-        xls = pd.ExcelFile(selected_file)
-        
-        review_category = st.sidebar.radio("Pilih Kategori:", ["🌡️ Suhu & Kelembapan", "📋 Daily Quality Control (QC)"])
-        
+    xls = pd.ExcelFile(selected_file) if selected_file else None
+    
+    if xls:
+        st.markdown("<br>", unsafe_allow_html=True)
         if review_category == "🌡️ Suhu & Kelembapan":
             raw_data_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")]
-            selected_sheet = st.sidebar.selectbox(
+            selected_sheet = st.selectbox(
                 "Pilih Ruangan:", 
                 raw_data_sheets, 
                 format_func=lambda x: str(x).replace(" Oct", "").strip()
@@ -479,200 +528,197 @@ else:
             
         else:
             qc_sheets = [s for s in xls.sheet_names if "QC" in s]
-            selected_qc = st.sidebar.selectbox("Pilih Modality QC:", qc_sheets)
+            selected_qc = st.selectbox("Pilih Modality QC:", qc_sheets)
             df_qc = pd.read_excel(xls, sheet_name=selected_qc, header=None)
             qc_html = build_qc_html(selected_qc, selected_file, df_qc, logo_b64, sig1_b64, sig2_b64, sig3_b64)
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
-    # ==========================================
-    # 2. MENU: INPUT DATA (BERSIH DARI PILIHAN EXCEL)
-    # ==========================================
-    elif main_menu == "📝 Input Data":
-        st.header("📝 Form Pengisian Data Harian (Mandiri)")
-        st.write("Silakan pilih modalitas/ruangan. Step 1 (Suhu & Kelembapan) wajib diisi, dan Step 2 (QC) otomatis mengikuti modalitas yang sama.")
+# ==========================================
+# 2. MENU: INPUT DATA (STEP-BY-STEP TERPADU)
+# ==========================================
+elif main_menu == "📝 Input Data":
+    st.markdown("### 📝 Form Pengisian Harian Petugas (Step-by-Step)")
+    st.markdown("<p style='color: #64748B;'>Pilih modalitas satu kali, isi suhu & kelembapan, lalu lanjutkan ke checklist QC modalitas tersebut secara otomatis.</p>", unsafe_allow_html=True)
+    
+    active_target_file = all_files[0] if all_files else "1. Oktober.xlsx"
+    xls_ref = pd.ExcelFile(active_target_file) if os.path.exists(active_target_file) else None
+    
+    suhu_sheets = [s for s in xls_ref.sheet_names if str(s).endswith("Oct")] if xls_ref else ["R.Teknik MRI Oct", "R.Teknik CT Scan Oct", "USG Oct"]
+    qc_sheets = [s for s in xls_ref.sheet_names if "QC" in s] if xls_ref else ["QC MRI", "QC CT Scan", "QC USG"]
+    
+    room_to_qc = {}
+    for r_sheet in suhu_sheets:
+        clean_r = r_sheet.replace(" Oct", "").strip()
+        matched_qc = next((q for q in qc_sheets if clean_r.lower() in q.lower() or q.lower().replace("qc ", "") in clean_r.lower()), qc_sheets[0] if qc_sheets else None)
+        room_to_qc[r_sheet] = matched_qc
+
+    with st.form("clean_corporate_input_form"):
+        st.markdown("#### 📌 Step 1: Identitas & Waktu Pengisian")
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
+        with col_b:
+            tanggal_input = st.selectbox("Tanggal Pengisian (1-31)", list(range(1, 32)))
+        with col_c:
+            dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
+
+        st.markdown("<br><h4>📌 Step 2: Pilih Modalitas / Ruangan Utama</h4>", unsafe_allow_html=True)
+        selected_room = st.selectbox(
+            "Modalitas / Ruangan:", 
+            suhu_sheets, 
+            format_func=lambda x: str(x).replace(" Oct", "").strip()
+        )
         
-        # Target penyimpanan otomatis ke file aktif/bulan berjalan (misal file pertama atau Oktober 2026)
-        active_target_file = all_files[0] if all_files else "1. Oktober.xlsx"
-        xls_ref = pd.ExcelFile(active_target_file) if os.path.exists(active_target_file) else None
+        auto_matched_qc = room_to_qc.get(selected_room)
+        modality_display_name = auto_matched_qc.replace("QC ", "") if auto_matched_qc else selected_room
+
+        st.markdown(f"<br><h4>Step 3: 🌡️ Suhu & Kelembapan Ruangan ({selected_room.replace(' Oct', '')})</h4>", unsafe_allow_html=True)
+        col_s, col_k = st.columns(2)
+        with col_s:
+            suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
+        with col_k:
+            kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
+
+        st.markdown(f"<br><h4>Step 4: 📋 Daily Quality Control — {modality_display_name}</h4>", unsafe_allow_html=True)
+        include_qc = st.checkbox(f"Lakukan pengisian checklist QC untuk {modality_display_name}?", value=True)
         
-        suhu_sheets = [s for s in xls_ref.sheet_names if str(s).endswith("Oct")] if xls_ref else ["R.Teknik MRI Oct", "R.Teknik CT Scan Oct", "USG Oct"]
-        qc_sheets = [s for s in xls_ref.sheet_names if "QC" in s] if xls_ref else ["QC MRI", "QC CT Scan", "QC USG"]
-        
-        room_to_qc = {}
-        for r_sheet in suhu_sheets:
-            clean_r = r_sheet.replace(" Oct", "").strip()
-            matched_qc = next((q for q in qc_sheets if clean_r.lower() in q.lower() or q.lower().replace("qc ", "") in clean_r.lower()), qc_sheets[0] if qc_sheets else None)
-            room_to_qc[r_sheet] = matched_qc
-
-        with st.form("clean_standalone_input_form"):
-            st.subheader("📌 1. Identitas & Waktu Pengisian")
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
-            with col_b:
-                tanggal_input = st.selectbox("Tanggal Pengisian (1-31)", list(range(1, 32)))
-            with col_c:
-                dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
-
-            st.markdown("---")
-            
-            st.subheader("📌 2. Pilih Modalitas / Ruangan Utama")
-            selected_room = st.selectbox(
-                "Modalitas / Ruangan:", 
-                suhu_sheets, 
-                format_func=lambda x: str(x).replace(" Oct", "").strip()
-            )
-            
-            auto_matched_qc = room_to_qc.get(selected_room)
-            modality_display_name = auto_matched_qc.replace("QC ", "") if auto_matched_qc else selected_room
-
-            st.markdown("---")
-            
-            st.subheader(f"Step 1: 🌡️ Suhu & Kelembapan Ruangan ({selected_room.replace(' Oct', '')})")
-            col_s, col_k = st.columns(2)
-            with col_s:
-                suhu_input = st.number_input("Suhu Ruangan (°C) [Target 18 - 23°C]", min_value=15.0, max_value=30.0, value=22.0, step=0.5)
-            with col_k:
-                kel_input = st.number_input("Kelembapan Ruangan (%) [Target 40 - 60%]", min_value=30.0, max_value=70.0, value=55.0, step=1.0)
-
-            st.markdown("---")
-            
-            st.subheader(f"Step 2: 📋 Daily Quality Control — {modality_display_name}")
-            include_qc = st.checkbox(f"Lakukan pengisian checklist QC untuk {modality_display_name}?", value=True)
-            
-            qc_items_list = []
-            if include_qc and auto_matched_qc and xls_ref:
-                df_qc_sheet = pd.read_excel(xls_ref, sheet_name=auto_matched_qc, header=None)
-                param_idx = 5
-                for r_i in [8, 7, 6]:
-                    if r_i < len(df_qc_sheet):
-                        row_h = [str(x).upper() for x in df_qc_sheet.iloc[r_i].values]
-                        for c_i, val in enumerate(row_h):
-                            if "PARAMETER" in val:
-                                param_idx = c_i
-                                break
-                        if param_idx != 5:
+        qc_items_list = []
+        if include_qc and auto_matched_qc and xls_ref:
+            df_qc_sheet = pd.read_excel(xls_ref, sheet_name=auto_matched_qc, header=None)
+            param_idx = 5
+            for r_i in [8, 7, 6]:
+                if r_i < len(df_qc_sheet):
+                    row_h = [str(x).upper() for x in df_qc_sheet.iloc[r_i].values]
+                    for c_i, val in enumerate(row_h):
+                        if "PARAMETER" in val:
+                            param_idx = c_i
                             break
+                    if param_idx != 5:
+                        break
 
-                curr_cat = ""
-                for idx, row in df_qc_sheet.iterrows():
-                    if idx >= 8:
-                        r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
-                        r_text = " ".join(r_vals).upper()
-                        if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
-                            continue
-                        non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
-                        if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
-                            curr_cat = non_empty[0]
-                            continue
-                        if len(r_vals) > 1 and r_vals[0].isdigit():
-                            keg = r_vals[1].strip()
-                            param = r_vals[param_idx].strip() if param_idx < len(r_vals) else ""
-                            if not param:
-                                for c in range(2, param_idx + 1):
-                                    if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
-                                        param = r_vals[c].strip()
-                                        break
-                            qc_items_list.append((curr_cat, r_vals[0], keg, param))
+            curr_cat = ""
+            for idx, row in df_qc_sheet.iterrows():
+                if idx >= 8:
+                    r_vals = [str(x) if pd.notna(x) else "" for x in row.values]
+                    r_text = " ".join(r_vals).upper()
+                    if any(kwd in r_text for kwd in ["DISIAPKAN", "MENGETAHUI", "RHEINNER", "JOKO", "CHRISTOPHER"]):
+                        continue
+                    non_empty = [v.strip() for i, v in enumerate(r_vals[:param_idx]) if v.strip() != "" and v.strip() != "NO"]
+                    if len(non_empty) == 1 and r_vals[0] != "" and not r_vals[0].isdigit():
+                        curr_cat = non_empty[0]
+                        continue
+                    if len(r_vals) > 1 and r_vals[0].isdigit():
+                        keg = r_vals[1].strip()
+                        param = r_vals[param_idx].strip() if param_idx < len(r_vals) else ""
+                        if not param:
+                            for c in range(2, param_idx + 1):
+                                if c < len(r_vals) and r_vals[c].strip() != "" and r_vals[c].strip() not in ["✓", "X"]:
+                                    param = r_vals[c].strip()
+                                    break
+                        qc_items_list.append((curr_cat, r_vals[0], keg, param))
 
-            qc_responses = {}
-            if include_qc and auto_matched_qc:
-                active_category = ""
-                row_idx_tracker = 0
-                for cat, no, keg, param in qc_items_list:
-                    if cat != active_category:
-                        active_category = cat
-                        st.markdown(f"#### 📌 {active_category}")
-                    
-                    label = f"**{no}. {keg}** — *Parameter: {param}*" if param else f"**{no}. {keg}**"
-                    qc_responses[row_idx_tracker] = st.radio(
-                        label, 
-                        ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
-                        key=f"clean_qc_{auto_matched_qc}_{row_idx_tracker}"
-                    )
-                    row_idx_tracker += 1
-
-            submitted_data = st.form_submit_button("🚀 Submit Data Harian")
-            
-            if submitted_data:
-                local_suhu = load_local_db(DB_SUHU_FILE)
-                if active_target_file not in local_suhu:
-                    local_suhu[active_target_file] = {}
-                if selected_room not in local_suhu[active_target_file]:
-                    local_suhu[active_target_file][selected_room] = []
-                    
-                local_suhu[active_target_file][selected_room].append({
-                    "tanggal": tanggal_input,
-                    "dinas": dinas_input,
-                    "petugas": petugas_input,
-                    "suhu": suhu_input,
-                    "kelembapan": kel_input
-                })
-                save_local_db(DB_SUHU_FILE, local_suhu)
+        qc_responses = {}
+        if include_qc and auto_matched_qc:
+            active_category = ""
+            row_idx_tracker = 0
+            for cat, no, keg, param in qc_items_list:
+                if cat != active_category:
+                    active_category = cat
+                    st.markdown(f"**📌 {active_category}**")
                 
-                if include_qc and auto_matched_qc:
-                    local_qc = load_local_db(DB_QC_FILE)
-                    if active_target_file not in local_qc:
-                        local_qc[active_target_file] = {}
-                    if auto_matched_qc not in local_qc[active_target_file]:
-                        local_qc[active_target_file][auto_matched_qc] = {}
-                        
-                    day_key = str(tanggal_input)
-                    if day_key not in local_qc[active_target_file][auto_matched_qc]:
-                        local_qc[active_target_file][auto_matched_qc][day_key] = {}
-                        
-                    local_qc[active_target_file][auto_matched_qc][day_key]['worker'] = petugas_input
-                    for r_idx, resp in qc_responses.items():
-                        symbol = "✓" if "Baik" in resp else "X"
-                        local_qc[active_target_file][auto_matched_qc][day_key][str(r_idx)] = {"status": symbol}
-                        
-                    save_local_db(DB_QC_FILE, local_qc)
-                    
-                st.success(f"✅ Data Suhu & QC untuk **{selected_room.replace(' Oct', '')}** berhasil disimpan!")
-                st.balloons()
+                label = f"**{no}. {keg}** — *Parameter: {param}*" if param else f"**{no}. {keg}**"
+                qc_responses[row_idx_tracker] = st.radio(
+                    label, 
+                    ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
+                    key=f"corp_qc_{auto_matched_qc}_{row_idx_tracker}"
+                )
+                row_idx_tracker += 1
 
-    # ==========================================
-    # 3. MENU: REVISI / HAPUS
-    # ==========================================
-    elif main_menu == "⚙️ Revisi / Hapus":
-        st.header("⚙️ Menu Revisi & Penghapusan Data")
-        st.write("Gunakan menu ini untuk menghapus atau mengoreksi data yang salah input.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        submitted_data = st.form_submit_button("🚀 Submit Data Harian")
         
-        selected_file = st.selectbox("Pilih Bulan Database Arsip:", all_files)
+        if submitted_data:
+            local_suhu = load_local_db(DB_SUHU_FILE)
+            if active_target_file not in local_suhu:
+                local_suhu[active_target_file] = {}
+            if selected_room not in local_suhu[active_target_file]:
+                local_suhu[active_target_file][selected_room] = []
+                
+            local_suhu[active_target_file][selected_room].append({
+                "tanggal": tanggal_input,
+                "dinas": dinas_input,
+                "petugas": petugas_input,
+                "suhu": suhu_input,
+                "kelembapan": kel_input
+            })
+            save_local_db(DB_SUHU_FILE, local_suhu)
+            
+            if include_qc and auto_matched_qc:
+                local_qc = load_local_db(DB_QC_FILE)
+                if active_target_file not in local_qc:
+                    local_qc[active_target_file] = {}
+                if auto_matched_qc not in local_qc[active_target_file]:
+                    local_qc[active_target_file][auto_matched_qc] = {}
+                    
+                day_key = str(tanggal_input)
+                if day_key not in local_qc[active_target_file][auto_matched_qc]:
+                    local_qc[active_target_file][auto_matched_qc][day_key] = {}
+                    
+                local_qc[active_target_file][auto_matched_qc][day_key]['worker'] = petugas_input
+                for r_idx, resp in qc_responses.items():
+                    symbol = "✓" if "Baik" in resp else "X"
+                    local_qc[active_target_file][auto_matched_qc][day_key][str(r_idx)] = {"status": symbol}
+                    
+                save_local_db(DB_QC_FILE, local_qc)
+                
+            st.success(f"✅ Data Suhu & QC untuk **{selected_room.replace(' Oct', '')}** berhasil disimpan!")
+            st.balloons()
+
+# ==========================================
+# 3. MENU: REVISI / HAPUS
+# ==========================================
+elif main_menu == "⚙️ Revisi / Hapus":
+    st.markdown("### ⚙️ Menu Revisi & Penghapusan Data")
+    st.markdown("<p style='color: #64748B;'>Kelola dan hapus data input harian jika terjadi kesalahan tanggal atau nilai.</p>", unsafe_allow_html=True)
+    
+    col_rev1, col_rev2 = st.columns(2)
+    with col_rev1:
+        selected_file = st.selectbox("Pilih Bulan Arsip:", all_files)
+    with col_rev2:
         db_type_to_clean = st.selectbox("Pilih Kategori Data:", ["QC", "Suhu & Kelembapan"])
-        
-        st.markdown("---")
-        if db_type_to_clean == "QC":
-            current_qc_db = load_local_db(DB_QC_FILE)
-            if selected_file in current_qc_db and current_qc_db[selected_file]:
-                st.write(f"Daftar input QC tersimpan untuk **{selected_file}**:")
-                for modality, days in current_qc_db[selected_file].items():
-                    for d_key in list(days.keys()):
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.write(f"• **{modality}** — Tanggal {d_key}")
-                        with col2:
-                            if st.button("🗑️ Hapus", key=f"del_qc_{modality}_{d_key}"):
-                                del current_qc_db[selected_file][modality][d_key]
-                                save_local_db(DB_QC_FILE, current_qc_db)
-                                st.success(f"Data {modality} tanggal {d_key} berhasil dihapus!")
-                                st.rerun()
-            else:
-                st.info("Belum ada data input QC lokal untuk bulan ini.")
+    
+    st.markdown("---")
+    if db_type_to_clean == "QC":
+        current_qc_db = load_local_db(DB_QC_FILE)
+        if selected_file in current_qc_db and current_qc_db[selected_file]:
+            st.write(f"Daftar input QC tersimpan untuk **{selected_file}**:")
+            for modality, days in current_qc_db[selected_file].items():
+                for d_key in list(days.keys()):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.write(f"• **{modality}** — Tanggal {d_key}")
+                    with col2:
+                        if st.button("🗑️ Hapus", key=f"del_qc_{modality}_{d_key}"):
+                            del current_qc_db[selected_file][modality][d_key]
+                            save_local_db(DB_QC_FILE, current_qc_db)
+                            st.success(f"Data {modality} tanggal {d_key} berhasil dihapus!")
+                            st.rerun()
         else:
-            current_suhu_db = load_local_db(DB_SUHU_FILE)
-            if selected_file in current_suhu_db and current_suhu_db[selected_file]:
-                st.write(f"Daftar input Suhu & Kelembapan tersimpan untuk **{selected_file}**:")
-                for room, entries in current_suhu_db[selected_file].items():
-                    for idx, entry in enumerate(entries):
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.write(f"• **{room}** — Tgl {entry['tanggal']} (Dinas {entry['dinas']}, Petugas: {entry['petugas']})")
-                        with col2:
-                            if st.button("🗑️ Hapus", key=f"del_suhu_{room}_{idx}"):
-                                current_suhu_db[selected_file][room].pop(idx)
-                                save_local_db(DB_SUHU_FILE, current_suhu_db)
-                                st.success("Data suhu berhasil dihapus!")
-                                st.rerun()
-            else:
-                st.info("Belum ada data input Suhu lokal untuk bulan ini.")
+            st.info("Belum ada data input QC lokal untuk bulan ini.")
+    else:
+        current_suhu_db = load_local_db(DB_SUHU_FILE)
+        if selected_file in current_suhu_db and selected_file in current_suhu_db:
+            st.write(f"Daftar input Suhu & Kelembapan tersimpan untuk **{selected_file}**:")
+            for room, entries in current_suhu_db[selected_file].items():
+                for idx, entry in enumerate(entries):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.write(f"• **{room}** — Tgl {entry['tanggal']} (Dinas {entry['dinas']}, Petugas: {entry['petugas']})")
+                    with col2:
+                        if st.button("🗑️ Hapus", key=f"del_suhu_{room}_{idx}"):
+                            current_suhu_db[selected_file][room].pop(idx)
+                            save_local_db(DB_SUHU_FILE, current_suhu_db)
+                            st.success("Data suhu berhasil dihapus!")
+                            st.rerun()
+        else:
+            st.info("Belum ada data input Suhu lokal untuk bulan ini.")
