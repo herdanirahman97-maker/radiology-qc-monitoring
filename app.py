@@ -455,7 +455,7 @@ else:
     master_html_end = "</body></html>"
     
     # ==========================================
-    # 1. MENU: REVIEW BACKDATE
+    # 1. MENU: REVIEW BACKDATE (Arsip Excel Dipakai Disini)
     # ==========================================
     if main_menu == "📂 Review Backdate":
         st.sidebar.markdown("---")
@@ -485,29 +485,26 @@ else:
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
     # ==========================================
-    # 2. MENU: INPUT DATA (SINGLE MODALITY SELECTION & SYNCED STEPS)
+    # 2. MENU: INPUT DATA (BERSIH DARI PILIHAN EXCEL)
     # ==========================================
     elif main_menu == "📝 Input Data":
-        st.header("📝 Form Pengisian Data Harian (Step-by-Step Terpadu)")
-        st.write("Pilih modalitas/ruangan **cukup sekali di awal**. Sistem akan otomatis membuka form Suhu & Kelembapan serta mencocokkan lembar QC untuk modalitas tersebut.")
+        st.header("📝 Form Pengisian Data Harian (Mandiri)")
+        st.write("Silakan pilih modalitas/ruangan. Step 1 (Suhu & Kelembapan) wajib diisi, dan Step 2 (QC) otomatis mengikuti modalitas yang sama.")
         
-        selected_file = st.selectbox("Pilih Bulan Target Arsip:", all_files)
-        xls = pd.ExcelFile(selected_file) if selected_file else None
+        # Target penyimpanan otomatis ke file aktif/bulan berjalan (misal file pertama atau Oktober 2026)
+        active_target_file = all_files[0] if all_files else "1. Oktober.xlsx"
+        xls_ref = pd.ExcelFile(active_target_file) if os.path.exists(active_target_file) else None
         
-        # Ambil daftar ruangan suhu dan lembar QC yang ada di file Excel
-        suhu_sheets = [s for s in xls.sheet_names if str(s).endswith("Oct")] if xls else []
-        qc_sheets = [s for s in xls.sheet_names if "QC" in s] if xls else []
+        suhu_sheets = [s for s in xls_ref.sheet_names if str(s).endswith("Oct")] if xls_ref else ["R.Teknik MRI Oct", "R.Teknik CT Scan Oct", "USG Oct"]
+        qc_sheets = [s for s in xls_ref.sheet_names if "QC" in s] if xls_ref else ["QC MRI", "QC CT Scan", "QC USG"]
         
-        # Petakan nama ruangan suhu dengan lembar QC secara otomatis berdasarkan nama modalitasnya
         room_to_qc = {}
         for r_sheet in suhu_sheets:
             clean_r = r_sheet.replace(" Oct", "").strip()
-            # Cari sheet QC yang mengandung nama ruangan atau mirip
             matched_qc = next((q for q in qc_sheets if clean_r.lower() in q.lower() or q.lower().replace("qc ", "") in clean_r.lower()), qc_sheets[0] if qc_sheets else None)
             room_to_qc[r_sheet] = matched_qc
 
-        with st.form("synced_step_input_form"):
-            # --- IDENTITAS & WAKTU ---
+        with st.form("clean_standalone_input_form"):
             st.subheader("📌 1. Identitas & Waktu Pengisian")
             col_a, col_b, col_c = st.columns(3)
             with col_a:
@@ -519,7 +516,6 @@ else:
 
             st.markdown("---")
             
-            # --- PILIHAN MODALITAS UTAMA (HANYA SEKALI) ---
             st.subheader("📌 2. Pilih Modalitas / Ruangan Utama")
             selected_room = st.selectbox(
                 "Modalitas / Ruangan:", 
@@ -527,13 +523,11 @@ else:
                 format_func=lambda x: str(x).replace(" Oct", "").strip()
             )
             
-            # Tentukan sheet QC yang otomatis sinkron dengan ruangan yang dipilih
             auto_matched_qc = room_to_qc.get(selected_room)
             modality_display_name = auto_matched_qc.replace("QC ", "") if auto_matched_qc else selected_room
 
             st.markdown("---")
             
-            # --- STEP 1: SUHU & KELEMBAPAN (OTOMATIS SESUAI RUANGAN PILIHAN) ---
             st.subheader(f"Step 1: 🌡️ Suhu & Kelembapan Ruangan ({selected_room.replace(' Oct', '')})")
             col_s, col_k = st.columns(2)
             with col_s:
@@ -543,13 +537,12 @@ else:
 
             st.markdown("---")
             
-            # --- STEP 2: QC (OTOMATIS SESUAI MODALITAS YANG DIPILIH) ---
             st.subheader(f"Step 2: 📋 Daily Quality Control — {modality_display_name}")
             include_qc = st.checkbox(f"Lakukan pengisian checklist QC untuk {modality_display_name}?", value=True)
             
             qc_items_list = []
-            if include_qc and auto_matched_qc and xls:
-                df_qc_sheet = pd.read_excel(xls, sheet_name=auto_matched_qc, header=None)
+            if include_qc and auto_matched_qc and xls_ref:
+                df_qc_sheet = pd.read_excel(xls_ref, sheet_name=auto_matched_qc, header=None)
                 param_idx = 5
                 for r_i in [8, 7, 6]:
                     if r_i < len(df_qc_sheet):
@@ -595,21 +588,20 @@ else:
                     qc_responses[row_idx_tracker] = st.radio(
                         label, 
                         ["Berfungsi / Lengkap / Baik (✓)", "Tidak Berfungsi / Rusak (X)"], 
-                        key=f"synced_qc_{auto_matched_qc}_{row_idx_tracker}"
+                        key=f"clean_qc_{auto_matched_qc}_{row_idx_tracker}"
                     )
                     row_idx_tracker += 1
 
             submitted_data = st.form_submit_button("🚀 Submit Data Harian")
             
             if submitted_data:
-                # 1. Simpan Suhu & Kelembapan
                 local_suhu = load_local_db(DB_SUHU_FILE)
-                if selected_file not in local_suhu:
-                    local_suhu[selected_file] = {}
-                if selected_room not in local_suhu[selected_file]:
-                    local_suhu[selected_file][selected_room] = []
+                if active_target_file not in local_suhu:
+                    local_suhu[active_target_file] = {}
+                if selected_room not in local_suhu[active_target_file]:
+                    local_suhu[active_target_file][selected_room] = []
                     
-                local_suhu[selected_file][selected_room].append({
+                local_suhu[active_target_file][selected_room].append({
                     "tanggal": tanggal_input,
                     "dinas": dinas_input,
                     "petugas": petugas_input,
@@ -618,26 +610,25 @@ else:
                 })
                 save_local_db(DB_SUHU_FILE, local_suhu)
                 
-                # 2. Simpan QC (Otomatis sinkron dengan modalitas yang dipilih)
                 if include_qc and auto_matched_qc:
                     local_qc = load_local_db(DB_QC_FILE)
-                    if selected_file not in local_qc:
-                        local_qc[selected_file] = {}
-                    if auto_matched_qc not in local_qc[selected_file]:
-                        local_qc[selected_file][auto_matched_qc] = {}
+                    if active_target_file not in local_qc:
+                        local_qc[active_target_file] = {}
+                    if auto_matched_qc not in local_qc[active_target_file]:
+                        local_qc[active_target_file][auto_matched_qc] = {}
                         
                     day_key = str(tanggal_input)
-                    if day_key not in local_qc[selected_file][auto_matched_qc]:
-                        local_qc[selected_file][auto_matched_qc][day_key] = {}
+                    if day_key not in local_qc[active_target_file][auto_matched_qc]:
+                        local_qc[active_target_file][auto_matched_qc][day_key] = {}
                         
-                    local_qc[selected_file][auto_matched_qc][day_key]['worker'] = petugas_input
+                    local_qc[active_target_file][auto_matched_qc][day_key]['worker'] = petugas_input
                     for r_idx, resp in qc_responses.items():
                         symbol = "✓" if "Baik" in resp else "X"
-                        local_qc[selected_file][auto_matched_qc][day_key][str(r_idx)] = {"status": symbol}
+                        local_qc[active_target_file][auto_matched_qc][day_key][str(r_idx)] = {"status": symbol}
                         
                     save_local_db(DB_QC_FILE, local_qc)
                     
-                st.success(f"✅ Data Suhu & QC untuk **{selected_room.replace(' Oct', '')}** berhasil disimpan secara real-time!")
+                st.success(f"✅ Data Suhu & QC untuk **{selected_room.replace(' Oct', '')}** berhasil disimpan!")
                 st.balloons()
 
     # ==========================================
@@ -645,7 +636,7 @@ else:
     # ==========================================
     elif main_menu == "⚙️ Revisi / Hapus":
         st.header("⚙️ Menu Revisi & Penghapusan Data")
-        st.write("Gunakan menu ini untuk menghapus atau mengoreksi data yang salah input tanggal atau nilainya.")
+        st.write("Gunakan menu ini untuk menghapus atau mengoreksi data yang salah input.")
         
         selected_file = st.selectbox("Pilih Bulan Database Arsip:", all_files)
         db_type_to_clean = st.selectbox("Pilih Kategori Data:", ["QC", "Suhu & Kelembapan"])
