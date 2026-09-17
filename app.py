@@ -48,7 +48,7 @@ xls_global = pd.ExcelFile(active_file) if os.path.exists(active_file) else None
 
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
 
-# --- GLOBAL CSS: CLEAN WHITE THEME & DROPDOWN FIX ---
+# --- GLOBAL CSS: PAKSA PUTIH BERSIH & HILANGKAN WARNA GELAP DROPDOWN ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
@@ -63,6 +63,7 @@ st.markdown("""
         color: #002B5B !important;
     }
     
+    /* Styling Kotak Selectbox */
     .stSelectbox div[data-baseweb="select"] {
         background-color: #FFFFFF !important;
         border: 1px solid #002B5B !important;
@@ -74,14 +75,15 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    div[data-baseweb="popup"], div[data-baseweb="menu"], ul[data-baseweb="menu"] {
+    /* FIX TOTAL POPUP / DROPDOWN LIST MENJADI PUTIH BERSIH & TEKS GELAP */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"], div[role="listbox"] {
         background-color: #FFFFFF !important;
         border: 1px solid #002B5B !important;
         border-radius: 8px !important;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.15) !important;
     }
     
-    div[data-baseweb="popup"] div, div[data-baseweb="menu"] div, li[role="option"] div, li[role="option"] span {
+    div[data-baseweb="popover"] *, div[data-baseweb="menu"] *, ul[data-baseweb="menu"] *, li[role="option"] *, div[role="listbox"] * {
         color: #002B5B !important;
         background-color: #FFFFFF !important;
         font-weight: 600 !important;
@@ -102,12 +104,17 @@ ROOM_TO_QC_MAP = {
     "R.Teknik MRI Oct": "QC MRI",
     "MRI Oct": "QC MRI",
     "Mammografi Oct": "QC Mammografi",
+    "Mammografi": "QC Mammografi",
     "USG Oct": "QC USG",
+    "USG": "QC USG",
     "R.Teknik CT Scan Oct": "QC CT-Scan",
     "CTScan Oct": "QC CT-Scan",
+    "CT Scan": "QC CT-Scan",
     "Fluoroskopi Oct": "QC Fluoroskopi",
+    "Fluoroskopi": "QC Fluoroskopi",
     "Mobile X-Ray Oct": "QC Mobile",
-    "Konvensional DR Oct": "QC Konvensional DR"
+    "Konvensional DR Oct": "QC Konvensional DR",
+    "Konvensional DR": "QC Konvensional DR"
 }
 
 # --- HTML BUILDER SUHU & KELEMBAPAN ---
@@ -454,7 +461,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- MENU UTAMA DI TENGAH (4 PILIHAN UTAMA) ---
+# --- MENU UTAMA DI TENGAH ---
 col_space1, col_nav, col_space2 = st.columns([1, 6, 1])
 with col_nav:
     main_menu = st.radio(
@@ -542,16 +549,27 @@ master_html_start = """
 master_html_end = "</body></html>"
 
 # ==========================================
-# 1. MENU: INPUT DATA (SPESIFIK MODALITAS & QC OTOMATIS)
+# 1. MENU: INPUT DATA (REAKTIF & SPESIFIK MODALITAS)
 # ==========================================
 if main_menu == "📝 Input Data":
-    st.markdown("### 📝 Form Pengisian Data Harian (Step-by-Step Terpadu)")
-    st.markdown("<p style='color: #002B5B !important;'>Pilih ruangan atau modalitas Anda (seperti MRI, Mammografi, CT Scan, USG, dll). Step 1 mencatat Suhu & Kelembapan, dan Step 2 langsung menampilkan pertanyaan QC spesifik sesuai modalitas tersebut.</p>", unsafe_allow_html=True)
+    st.markdown("### 📝 Form Pengisian Data Harian (Reaktif & Terpadu)")
+    st.markdown("<p style='color: #002B5B !important;'>Pilih ruangan atau modalitas Anda (seperti MRI, Mammografi, Mobile X-Ray, dll). Form Suhu dan Checklist QC akan langsung berubah secara instan sesuai modalitas yang dipilih.</p>", unsafe_allow_html=True)
     
     suhu_sheets = [s for s in xls_global.sheet_names if str(s).endswith("Oct")] if xls_global else []
 
+    # Pilihan ruangan diletakkan di luar form agar reaktif (langsung merubah step 3 & 4 seketika)
+    st.markdown("#### 📌 Step 1: Pilih Modalitas / Ruangan Utama")
+    selected_room = st.selectbox(
+        "Modalitas / Ruangan:", 
+        suhu_sheets, 
+        format_func=lambda x: str(x).replace(" Oct", "").strip()
+    )
+    
+    auto_matched_qc = ROOM_TO_QC_MAP.get(selected_room, "QC MRI")
+    modality_display_name = auto_matched_qc.replace("QC ", "")
+
     with st.form("clean_corporate_input_form"):
-        st.markdown("#### 📌 Step 1: Identitas & Waktu Pengisian")
+        st.markdown("#### 📌 Step 2: Identitas & Waktu Pengisian")
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             petugas_input = st.selectbox("Inisial Petugas", OFFICER_INITIALS)
@@ -559,17 +577,6 @@ if main_menu == "📝 Input Data":
             tanggal_input = st.selectbox("Tanggal Pengisian (1-31)", list(range(1, 32)))
         with col_c:
             dinas_input = st.selectbox("Jadwal Dinas", ["P", "S", "M"])
-
-        st.markdown("<br><h4>📌 Step 2: Pilih Modalitas / Ruangan Utama</h4>", unsafe_allow_html=True)
-        selected_room = st.selectbox(
-            "Modalitas / Ruangan:", 
-            suhu_sheets, 
-            format_func=lambda x: str(x).replace(" Oct", "").strip()
-        )
-        
-        # Mapping otomatis ke lembar QC spesifik modalitas
-        auto_matched_qc = ROOM_TO_QC_MAP.get(selected_room, "QC MRI")
-        modality_display_name = auto_matched_qc.replace("QC ", "")
 
         st.markdown(f"<br><h4>Step 3: 🌡️ Suhu & Kelembapan Ruangan ({selected_room.replace(' Oct', '')})</h4>", unsafe_allow_html=True)
         col_s, col_k = st.columns(2)
