@@ -47,11 +47,9 @@ active_file = all_files[0] if all_files else "8. Agustus.xlsx"
 xls_global = pd.ExcelFile(active_file) if os.path.exists(active_file) else None
 
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
-
-# Sesuai permintaan: Hanya Oktober, November, Desember untuk Live/Revisi
 ACTIVE_MONTHS = ["Oktober", "November", "Desember"]
 
-# --- GLOBAL CSS ---
+# --- GLOBAL CSS: CLEAN WHITE THEME & STYLING ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
@@ -130,10 +128,10 @@ st.markdown("""
 
 # --- MAPPING RUANGAN KE SHEET QC (Ruangan tanpa QC bernilai None) ---
 ROOM_TO_QC_MAP = {
-    "R.Teknik MRI Oct": None, # Hanya Suhu & Kelembapan
-    "R.Teknik CT Scan Oct": None, # Hanya Suhu & Kelembapan
-    "Lemari ALKES Oct": None, # Hanya Suhu & Kelembapan
-    "Lemari CD Oct": None, # Hanya Suhu & Kelembapan
+    "R.Teknik MRI Oct": None,
+    "R.Teknik CT Scan Oct": None,
+    "Lemari ALKES Oct": None,
+    "Lemari CD Oct": None,
     "MRI Oct": "QC MRI",
     "Mammografi Oct": "QC Mammografi",
     "USG Oct": "QC USG",
@@ -143,27 +141,13 @@ ROOM_TO_QC_MAP = {
     "Konvensional DR Oct": "QC Konvensional DR"
 }
 
-# --- HTML BUILDER SUHU & KELEMBAPAN (DATA KOSONG = BLANK, TIDAK ADA DEFAULT PALSU) ---
-def build_room_html(sheet_name, month_name, df, logo_data_uri):
-    suhu_col = [c for c in df.columns if 'Suhu' in c][0] if any('Suhu' in c for c in df.columns) else None
-    kel_col = [c for c in df.columns if 'Kelembapan' in c][0] if any('Kelembapan' in c for c in df.columns) else None
-    
+# --- HTML BUILDER SUHU & KELEMBAPAN (MURNI DARI DATABASE LOKAL, TANPA DATA EXCEL BAWAAN) ---
+def build_room_html(sheet_name, month_name, logo_data_uri):
     data_dict = {}
-    if suhu_col and kel_col:
-        for _, row in df.dropna(subset=['Tanggal Pengisian', 'Jadwal Dinas']).iterrows():
-            try:
-                day = int(float(row['Tanggal Pengisian']))
-                shift = str(row['Jadwal Dinas']).strip().upper()
-                suhu = float(row[suhu_col]) if pd.notna(row[suhu_col]) else None
-                kel = float(row[kel_col]) if pd.notna(row[kel_col]) else None
-                raw_nama = str(row['Nama Petugas']).strip() if pd.notna(row['Nama Petugas']) else ""
-                nama = "" if "#REF!" in raw_nama else raw_nama
-                data_dict[(day, shift)] = {'suhu': suhu, 'kel': kel, 'nama': nama}
-            except:
-                continue
-
+    
     local_suhu_db = load_local_db(DB_SUHU_FILE)
     file_key = f"{month_name}"
+    
     if file_key in local_suhu_db and sheet_name in local_suhu_db[file_key]:
         for entry in local_suhu_db[file_key][sheet_name]:
             d = int(entry['tanggal'])
@@ -279,7 +263,7 @@ def build_room_html(sheet_name, month_name, df, logo_data_uri):
     """
     return html
 
-# --- HTML BUILDER QC (DATA KOSONG = BLANK) ---
+# --- HTML BUILDER QC ---
 def build_qc_html(sheet_name, month_name, df, logo_data_uri, sig1_uri, sig2_uri, sig3_uri):
     img_html = f"<img src='{logo_data_uri}' width='150'>" if logo_data_uri else "<b>[LOGO MISSING]</b>"
     modality_title = sheet_name.replace("QC ", "")
@@ -377,12 +361,6 @@ def build_qc_html(sheet_name, month_name, df, logo_data_uri, sig1_uri, sig2_uri,
                 val = ""
                 if str(day_idx) in sheet_overrides and str(row_counter) in sheet_overrides[str(day_idx)]:
                     val = sheet_overrides[str(day_idx)][str(row_counter)].get('status', '')
-                else:
-                    target_col = param_col_idx + day_idx
-                    if target_col < len(row_vals):
-                        cand = row_vals[target_col].strip()
-                        if cand in ["✓", "X"] or (len(cand) <= 2 and cand != ""):
-                            val = cand
                 table_html += f"<td style='border: 1px solid black; padding: 4px; text-align: center;'>{val}</td>"
             table_html += "</tr>"
             row_counter += 1
@@ -393,13 +371,6 @@ def build_qc_html(sheet_name, month_name, df, logo_data_uri, sig1_uri, sig2_uri,
         val = ""
         if str(day_idx) in sheet_overrides and 'worker' in sheet_overrides[str(day_idx)]:
             val = sheet_overrides[str(day_idx)]['worker']
-        else:
-            if name_row_vals:
-                target_col = param_col_idx + day_idx
-                if target_col < len(name_row_vals):
-                    cand = name_row_vals[target_col].strip()
-                    if cand and cand != "NAMA PEKERJA RADIASI" and not any(bad in cand.upper() for bad in ["JOKO", "CHRISTOPHER", "RHEINNER"]):
-                        val = cand
         table_html += f"<td style='border: 1px solid black; padding: 4px; font-size: 9px; text-align: center;'>{val}</td>"
     table_html += "</tr>"
 
@@ -723,14 +694,12 @@ elif main_menu == "📅 Live Preview Bulanan":
                 [s for s in xls_global.sheet_names if str(s).endswith("Oct")] if xls_global else []
             )
         else:
-            # Hanya tampilkan QC sheets yang valid
             qc_sheets = [s for s in xls_global.sheet_names if "QC" in s] if xls_global else []
             selected_qc = st.selectbox("Pilih Modality QC:", qc_sheets)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if live_category == "🌡️ Suhu & Kelembapan":
-        df_dummy = pd.read_excel(xls_global, sheet_name=selected_sheet) if xls_global else pd.DataFrame()
-        room_html = build_room_html(selected_sheet, view_month, df_dummy, logo_b64)
+        room_html = build_room_html(selected_sheet, view_month, logo_b64)
         components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
     else:
         df_qc = pd.read_excel(xls_global, sheet_name=selected_qc, header=None) if xls_global else pd.DataFrame()
@@ -761,7 +730,7 @@ elif main_menu == "📂 Review Backdate":
                 format_func=lambda x: str(x).replace(" Oct", "").strip()
             )
             df = pd.read_excel(xls, sheet_name=selected_sheet)
-            room_html = build_room_html(selected_sheet, "Oktober", df, logo_b64)
+            room_html = build_room_html(selected_sheet, "Oktober", logo_b64)
             components.html(master_html_start + room_html + master_html_end, height=850, scrolling=True)
             
         else:
