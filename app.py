@@ -45,41 +45,32 @@ all_files = sorted(all_files, key=lambda x: int(x.split('.')[0]))
 
 OFFICER_INITIALS = ["JK", "RN", "ND", "BA", "DT", "WN", "NA", "SS", "PR", "AR", "AG", "SN", "PP", "RK", "LD", "RR", "FH", "HR", "VR", "AL", "WF", "EK"]
 
-# --- GLOBAL CSS UTAMA: WHITE THEME BERSIH & PROFESIONAL ---
+# --- GLOBAL CSS: PAKSA WARNA TEKS JADI HITAM/DARK BLUE & BACKGROUND PUTIH ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
     
-    /* Paksa seluruh background aplikasi menjadi putih bersih */
+    /* Paksa background putih bersih */
     .stApp {
         background-color: #FFFFFF !important;
         font-family: 'Lexend', sans-serif;
-        color: #1A1A1A;
+        color: #1A1A1A !important;
     }
     
-    /* Sembunyikan elemen default Streamlit yang mengganggu */
+    /* Paksa seluruh label, teks, dan header menjadi hitam / dark blue pekat agar terbaca */
+    p, span, label, div, h1, h2, h3, h4, h5, h6, .stMarkdown {
+        color: #002B5B !important;
+    }
+    
+    /* Perjelas teks pada dropdown selectbox dan input */
+    .stSelectbox div[data-baseweb="select"] span, .stTextInput input {
+        color: #002B5B !important;
+        font-weight: 600 !important;
+    }
+
+    /* Sembunyikan elemen default */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* Styling Container Kartu Profesional */
-    .mandaya-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin-bottom: 20px;
-    }
-    
-    /* Header Utama Korporat */
-    .corp-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 2px solid #002B5B;
-        padding-bottom: 15px;
-        margin-bottom: 25px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,7 +127,7 @@ def build_room_html(sheet_name, file_name, df, logo_data_uri):
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 15px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h1 style='margin: 0; font-weight: 700; font-size: 26px;'>Form Digital Monitoring Suhu dan Kelembapan</h1>
+                <h1 style='margin: 0; font-weight: 700; font-size: 26px; color: #002B5B;'>Form Digital Monitoring Suhu dan Kelembapan</h1>
                 <h3 style='margin: 6px 0 0 0; font-weight: 600; font-size: 16px; color: #333;'>Departemen Radiologi Tahun 2026</h3>
             </div>
             <div style='flex: 0 0 150px;'></div>
@@ -265,7 +256,7 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
         <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; color: black; border-bottom: 2px solid #002B5B; padding-bottom: 10px;'>
             <div style='flex: 0 0 auto;'>{img_html}</div>
             <div style='flex: 1 1 auto; text-align: center;'>
-                <h1 style='margin: 0; font-weight: 700; font-size: 24px;'>Form Digital Daily Quality Control</h1>
+                <h1 style='margin: 0; font-weight: 700; font-size: 24px; color: #002B5B;'>Form Digital Daily Quality Control</h1>
                 <h3 style='margin: 4px 0 0 0; font-weight: 600; font-size: 15px; color: #333;'>Departemen Radiologi Tahun 2026</h3>
             </div>
             <div style='flex: 0 0 150px;'></div>
@@ -405,29 +396,40 @@ def build_qc_html(sheet_name, file_name, df, logo_data_uri, sig1_uri, sig2_uri, 
     """
     return html
 
-# --- HEADER UTAMA (MANDAYA STYLE TOP NAVBAR) ---
-st.markdown("""
-<div style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
-    <div style="font-weight: 700; font-size: 18px; color: #002B5B;">MANDAYA ROYAL HOSPITAL — RADIOLOGY QC SYSTEM</div>
-    <div style="font-size: 13px; color: #64748B; font-weight: 500;">Go-Live Version 2026</div>
-</div>
-""", unsafe_allow_html=True)
-
-# --- TAMPILAN PROFESIONAL GRID / TAB MENU UTAMA ---
-# Menggantikan radio button biasa dengan pilihan kartu navigasi ala portal rumah sakit korporat
-main_menu = st.radio(
-    "Pilih Menu Utama:", 
-    ["📂 Review Backdate", "📝 Input Data", "⚙️ Revisi / Hapus"], 
-    horizontal=True,
-    label_visibility="collapsed"
-)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 logo_b64 = get_image_base64(LOGO_PATH)
 sig1_b64 = get_image_base64(SIG1_PATH)
 sig2_b64 = get_image_base64(SIG2_PATH)
 sig3_b64 = get_image_base64(SIG3_PATH)
+
+# --- HEADER: LOGO DI KIRI ATAS, JUDUL DI TENGAH ---
+logo_img_tag = f"<img src='{logo_b64}' width='140'>" if logo_b64 else "<b style='color:#002B5B;'>MANDAYA HOSPITAL</b>"
+
+st.markdown(f"""
+<div style="background: #FFFFFF; border-bottom: 2px solid #002B5B; padding: 15px 25px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+    <div style="flex: 0 0 auto;">
+        {logo_img_tag}
+    </div>
+    <div style="flex: 1 1 auto; text-align: center;">
+        <h2 style="margin: 0; color: #002B5B; font-size: 22px; font-weight: 700;">MANDAYA ROYAL HOSPITAL — RADIOLOGY QC SYSTEM</h2>
+        <p style="margin: 4px 0 0 0; color: #555; font-size: 13px;">Departemen Radiologi Tahun 2026 | Go-Live Version</p>
+    </div>
+    <div style="flex: 0 0 140px; text-align: right; font-size: 12px; color: #666; font-weight: 600;">
+        v2.0 Standalone
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# --- MENU UTAMA DI TENGAH (CENTERED NAVIGATION) ---
+col_space1, col_nav, col_space2 = st.columns([1, 4, 1])
+with col_nav:
+    main_menu = st.radio(
+        "Pilih Menu Utama:", 
+        ["📂 Review Backdate", "📝 Input Data", "⚙️ Revisi / Hapus"], 
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 master_html_start = """
 <!DOCTYPE html>
@@ -534,11 +536,11 @@ if main_menu == "📂 Review Backdate":
             components.html(master_html_start + qc_html + master_html_end, height=950, scrolling=True)
 
 # ==========================================
-# 2. MENU: INPUT DATA (STEP-BY-STEP TERPADU)
+# 2. MENU: INPUT DATA
 # ==========================================
 elif main_menu == "📝 Input Data":
     st.markdown("### 📝 Form Pengisian Harian Petugas (Step-by-Step)")
-    st.markdown("<p style='color: #64748B;'>Pilih modalitas satu kali, isi suhu & kelembapan, lalu lanjutkan ke checklist QC modalitas tersebut secara otomatis.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #002B5B !important;'>Pilih modalitas satu kali, isi suhu & kelembapan, lalu lanjutkan ke checklist QC modalitas tersebut secara otomatis.</p>", unsafe_allow_html=True)
     
     active_target_file = all_files[0] if all_files else "1. Oktober.xlsx"
     xls_ref = pd.ExcelFile(active_target_file) if os.path.exists(active_target_file) else None
@@ -679,7 +681,7 @@ elif main_menu == "📝 Input Data":
 # ==========================================
 elif main_menu == "⚙️ Revisi / Hapus":
     st.markdown("### ⚙️ Menu Revisi & Penghapusan Data")
-    st.markdown("<p style='color: #64748B;'>Kelola dan hapus data input harian jika terjadi kesalahan tanggal atau nilai.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #002B5B !important;'>Kelola dan hapus data input harian jika terjadi kesalahan tanggal atau nilai.</p>", unsafe_allow_html=True)
     
     col_rev1, col_rev2 = st.columns(2)
     with col_rev1:
